@@ -145,6 +145,9 @@ export default defineConfig({
         description: 'Documents, spreadsheets, presentations, PDF, notes and live code, in your browser — your files on your device unless you choose to share them.',
         start_url: './',
         scope: './',
+        lang: 'en',
+        dir: 'ltr',
+        orientation: 'any',
         display: 'standalone',
         display_override: ['window-controls-overlay', 'standalone'],
         theme_color: '#1f5fbf',
@@ -155,6 +158,21 @@ export default defineConfig({
           { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
           { src: 'maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml' },
+        ],
+        // PLT-009: the actions of the icon of the installed application (handled by src/app/pwa.ts).
+        shortcuts: [
+          { name: 'New document', short_name: 'Document', url: './?new=document', icons: [{ src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' }] },
+          { name: 'New spreadsheet', short_name: 'Spreadsheet', url: './?new=spreadsheet', icons: [{ src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' }] },
+          { name: 'New presentation', short_name: 'Presentation', url: './?new=presentation', icons: [{ src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' }] },
+        ],
+        // The same screenshots as the documentation, for the install dialog of the browsers and the stores.
+        screenshots: [
+          { src: 'screenshots/start.png', sizes: '1280x800', type: 'image/png', form_factor: 'wide', label: 'The start screen of the application' },
+          { src: 'screenshots/document.png', sizes: '1280x800', type: 'image/png', form_factor: 'wide', label: 'A lab report with an equation and a table in the word processor' },
+          { src: 'screenshots/spreadsheet.png', sizes: '1280x800', type: 'image/png', form_factor: 'wide', label: 'A spreadsheet with formulas' },
+          { src: 'screenshots/phone-start.png', sizes: '393x851', type: 'image/png', form_factor: 'narrow', label: 'The start screen on a phone' },
+          { src: 'screenshots/phone.png', sizes: '393x851', type: 'image/png', form_factor: 'narrow', label: 'A lab report on a phone' },
+          { src: 'screenshots/phone-spreadsheet.png', sizes: '393x851', type: 'image/png', form_factor: 'narrow', label: 'A spreadsheet on a phone' },
         ],
         // PLT-006: File Handling API (Chromium). Not yet in the manifest typings.
         ...({
@@ -173,7 +191,7 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         // The Python runtime (~13 MB) and the TypeScript language service (~4 MB)
         // are cached on first use instead (CODE-002, CODE-008).
-        globIgnores: ['pyodide/**', 'python/**', 'brand/**', 'progressive-web-office/**', 'assets/ts.worker-*.js', 'assets/lib.*.d-*.js'],
+        globIgnores: ['pyodide/**', 'python/**', 'brand/**', 'screenshots/**', 'progressive-web-office/**', 'assets/ts.worker-*.js', 'assets/lib.*.d-*.js'],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.includes('/pyodide/') && url.origin === self.location.origin,

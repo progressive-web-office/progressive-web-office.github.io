@@ -46,6 +46,7 @@ spreadsheets (Excel `.xlsx`, OpenDocument `.ods`, `.csv`), presentations
 | PLT-006 | S | 0.0.6 | Where the browser supports the File Handling API, the system shall register as a handler for supported file types and open launched files. |
 | PLT-007 | M | 0.0.1 | The system shall work in the latest two versions of Chromium-based browsers, Firefox and Safari. |
 | PLT-008 | S | 0.0.1 | The system shall apply a Content-Security-Policy that forbids inline scripts and remote script sources. |
+| PLT-009 | S | — | Where the browser supports app shortcuts, the system shall offer "New document", "New spreadsheet" and "New presentation" from the icon of the installed application, and shall start the matching new document when it is launched from one of them. |
 
 ## 3. File management (FILE)
 

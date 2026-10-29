@@ -42,4 +42,15 @@ test('serves a valid web app manifest with file handlers', async ({ request }) =
   expect(manifest.short_name).toBe('PWO');
   expect(manifest.icons.length).toBeGreaterThanOrEqual(3);
   expect(manifest.file_handlers[0].accept['application/pdf']).toEqual(['.pdf']);
+  expect(manifest).toMatchObject({ lang: 'en', dir: 'ltr', orientation: 'any' });
+  // PLT-009
+  expect(manifest.shortcuts.map((s: { url: string }) => s.url)).toEqual(['./?new=document', './?new=spreadsheet', './?new=presentation']);
+  expect(manifest.screenshots.map((s: { form_factor: string }) => s.form_factor).sort()).toEqual(['narrow', 'narrow', 'narrow', 'wide', 'wide', 'wide']);
+  for (const shot of manifest.screenshots) expect((await request.get(shot.src)).ok(), shot.src).toBe(true);
+});
+
+test('starts a new document from an app shortcut (PLT-009)', async ({ page }) => {
+  await page.goto('./?new=spreadsheet');
+  await expect(page.getByRole('grid', { name: 'Spreadsheet' })).toBeVisible();
+  await expect(page).not.toHaveURL(/new=/);
 });

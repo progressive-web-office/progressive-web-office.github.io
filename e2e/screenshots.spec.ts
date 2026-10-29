@@ -69,6 +69,17 @@ test('phone', async ({ browser }) => {
   await context.close();
 });
 
+test('phone start screen and spreadsheet (manifest screenshots)', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 393, height: 851 }, isMobile: true, hasTouch: true, colorScheme: 'light', storageState: { cookies: [], origins: [] } });
+  const page = await context.newPage();
+  await openApp(page);
+  await shot(page, 'phone-start');
+  await openFile(page, 'measures.csv', 'Time (s),Speed (rpm),Set point (rpm)\n0,0,1000\n0.2,420,1000\n0.4,690,1000\n0.6,850,1000\n0.8,930,1000\n1.0,968,1000\n1.2,985,1000\n1.4,993,1000\n');
+  await page.getByRole('grid', { name: 'Spreadsheet' }).waitFor();
+  await shot(page, 'phone-spreadsheet');
+  await context.close();
+});
+
 test('letter (template, fields and springs)', async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: 'light', locale: 'fr-FR' });
   const page = await context.newPage();

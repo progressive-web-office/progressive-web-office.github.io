@@ -1,7 +1,8 @@
-/** Service worker registration, update prompt (PLT-005) and file handling (PLT-006). */
+/** Service worker registration, update prompt (PLT-005), file handling (PLT-006) and app shortcuts (PLT-009). */
 import { t } from '../i18n';
 import type { App } from './app';
 import { inExam } from '../exam/mode';
+import { openNewFromShortcut } from './shortcuts';
 import type { WindowLike } from '../share/handoff';
 
 interface LaunchParams {
@@ -22,6 +23,7 @@ export function installPwa(app: App): void {
     });
   }
   void openSharedFile(app);
+  void openNewFromShortcut(app);
   void openHandedOffFile(app);
   void openLinkedDocument(app);
   // A document link pasted in the address bar of an open tab only changes the fragment.
