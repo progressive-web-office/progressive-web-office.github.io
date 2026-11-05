@@ -7,6 +7,8 @@
 !/.gitignore
 !/.editorconfig
 !/README.md
+!/REUSE.toml
+!/LICENSES/**
 !/CHANGELOG.md
 !/ROADMAP.md
 !/SECURITY.md

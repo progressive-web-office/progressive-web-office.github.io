@@ -41,6 +41,10 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
 
 ### Changed
 
+- The repository follows the [REUSE](https://reuse.software/) convention:
+  `REUSE.toml` gives the copyright and licence of every file, including the
+  third-party Python wheels (MIT, BSD-3-Clause), and `LICENSES/` holds the
+  licence texts; `just reuse` and the CI check it.
 - The text tool of the drawing editor types the text in place, on several
   lines, with a choice of size, instead of asking for it in a separate window
   (DRAW-001).

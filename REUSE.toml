@@ -1,0 +1,34 @@
+version = 1
+SPDX-PackageName = "Progressive Web Office"
+SPDX-PackageDownloadLocation = "https://github.com/progressive-web-office/progressive-web-office.github.io"
+
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Progressive Web Office contributors"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+# Third-party Python wheels, served as they are (version in the file name).
+[[annotations]]
+path = "public/python/anywidget-*.whl"
+precedence = "override"
+SPDX-FileCopyrightText = "2022-2024 Trevor Manz"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "public/python/comm-*.whl"
+precedence = "override"
+SPDX-FileCopyrightText = "2022 Jupyter"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = "public/python/ipywidgets-*.whl"
+precedence = "override"
+SPDX-FileCopyrightText = "2015 Project Jupyter Contributors"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = "public/python/psygnal-*.whl"
+precedence = "override"
+SPDX-FileCopyrightText = "2021 Talley Lambert"
+SPDX-License-Identifier = "BSD-3-Clause"

@@ -10,6 +10,7 @@ description: How to build, test and contribute to Progressive Web Office.
 - [just](https://github.com/casey/just) (command runner)
 - Chromium for end-to-end tests (Playwright)
 - [bun](https://bun.sh) only for the QRShare integration tests
+- [uv](https://docs.astral.sh/uv/) for `uvx reuse lint` (licensing check)
 
 ## Commands
 
@@ -25,6 +26,7 @@ description: How to build, test and contribute to Progressive Web Office.
 | `just e2e-qrshare` | Integration tests with a real [QRShare](https://github.com/s-celles/QRShare) build (requires [bun](https://bun.sh)) |
 | `just docs` | Build this documentation, plus `llms.txt` and `llms-full.txt` |
 | `just docs-dev` | Live-preview this documentation |
+| `just reuse` | Check that every file has its copyright and licence ([REUSE](https://reuse.software/): `REUSE.toml`, `LICENSES/`) |
 | `just check` | Everything a contributor must run before committing |
 
 ## Workflow

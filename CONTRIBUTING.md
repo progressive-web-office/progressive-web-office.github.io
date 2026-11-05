@@ -74,3 +74,9 @@ More details: [docs/development.md](docs/development.md) and
 By contributing, you agree that your contribution is licensed under the
 [GNU Affero General Public License v3.0 or later](LICENSE.md), like the rest
 of the project.
+
+The repository follows the [REUSE](https://reuse.software/) convention: the
+copyright and licence of every file are declared in `REUSE.toml`, the licence
+texts are in `LICENSES/`. A file under another licence (a third-party file
+served as it is, for example) gets its own annotation in `REUSE.toml`.
+`just reuse` (or `uvx reuse lint`) checks it; the CI runs it too.

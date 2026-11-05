@@ -78,8 +78,12 @@ icons:
 template-figures:
     python3 scripts/template-figures.py
 
+# REUSE compliance: every file has its copyright and licence (REUSE.toml, LICENSES/)
+reuse:
+    uvx reuse lint
+
 # Everything to run before committing
-check: typecheck test build docs
+check: typecheck test build docs reuse
 
 # Remove build outputs
 clean:
