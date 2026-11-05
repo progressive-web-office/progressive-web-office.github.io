@@ -2,6 +2,7 @@
  * DRAW-001..DRAW-006: the drawing model — shapes, connectors and schematic
  * symbols, in drawing units (CSS pixels at 100 %).
  */
+import { lineGap, lineSizes, runLines, runsOf } from './rich';
 import { symbolDef, type Pt } from './symbols';
 
 export type { Pt };
@@ -39,7 +40,10 @@ export interface LineShape extends Style {
   label?: string;
 }
 export interface FreeShape extends Style { id: string; kind: 'free'; points: Pt[] }
-export interface TextShape extends Style { id: string; kind: 'text'; x: number; y: number; text: string; size?: number }
+/** A part of a text with a look of its own (DRAW-001, PDF-021); unset fields take the box's. */
+export interface TextRun { text: string; size?: number; bold?: boolean; italic?: boolean; underline?: boolean; fill?: string }
+/** `text` is always the whole text; `runs`, when set, cut it in parts with their own looks. */
+export interface TextShape extends Style { id: string; kind: 'text'; x: number; y: number; text: string; size?: number; runs?: TextRun[] }
 export interface SymbolShape extends Style { id: string; kind: 'symbol'; sym: string; x: number; y: number; rot: 0 | 90 | 180 | 270; mirror?: boolean; ref?: string; value?: string }
 /** An imported SVG path, moved as a whole. */
 export interface PathShape extends Style { id: string; kind: 'path'; d: string; dx?: number; dy?: number }
@@ -120,9 +124,10 @@ export function bbox(s: Shape): [number, number, number, number] | undefined {
       return [Math.min(pts[0]![0], pts[1]![0]), Math.min(pts[0]![1], pts[1]![1]), Math.max(pts[0]![0], pts[1]![0]), Math.max(pts[0]![1], pts[1]![1])];
     }
     case 'text': {
-      const size = s.size ?? 16;
-      const lines = s.text.split('\n');
-      return [s.x, s.y - size, s.x + Math.max(...lines.map((l) => l.length)) * size * 0.55, s.y + (lines.length - 1) * size * 1.2 + size * 0.3];
+      const sizes = lineSizes(s);
+      const widths = runLines(runsOf(s)).map((line) => line.reduce((w, r) => w + r.text.length * (r.size ?? s.size ?? 16) * (r.bold ? 0.6 : 0.55), 0));
+      const below = sizes.slice(1).reduce((y, z, i) => y + lineGap(sizes[i]!, z), 0);
+      return [s.x, s.y - sizes[0]!, s.x + Math.max(...widths), s.y + below + sizes[sizes.length - 1]! * 0.3];
     }
     default:
       return undefined;

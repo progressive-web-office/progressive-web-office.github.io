@@ -1266,6 +1266,7 @@ export class PdfViewer implements EditorView {
       ...(url ? { background: url } : {}),
       title: t('pdf.drawDialog', { n: index + 1 }),
       fixedSize: true,
+      full: true,
       tool: existing?.drawing.shapes.length ? 'select' : 'text',
     });
     if (!result) return;

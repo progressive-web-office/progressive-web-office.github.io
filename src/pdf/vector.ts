@@ -12,17 +12,26 @@ import { drawingBody } from '../draw/svg';
 
 type Matrix = [number, number, number, number, number, number];
 
+/**
+ * The faces of a font: regular, bold, italic, bold italic — fonts /F1 to /F4 —
+ * and the Symbol font /F5, for the Greek letters and signs the others lack (Ω…).
+ */
+export type Face = 'R' | 'B' | 'I' | 'BI' | 'S';
+export const FACE_FONT: Record<Face, string> = { R: 'F1', B: 'F2', I: 'F3', BI: 'F4', S: 'F5' };
+
 export interface VectorFont {
-  /** The text encoded for the font, as a PDF string (`<…>`), or null when the font has no glyph for it. */
-  encode(text: string): string | null;
-  width(text: string, size: number): number;
+  /** The text encoded for the font's face, as a PDF string (`<…>`), or null when the font has no glyph for it. */
+  encode(text: string, face?: Face): string | null;
+  width(text: string, size: number, face?: Face): number;
 }
 
 export interface VectorOps {
   /** The content stream. */
   ops: string;
-  /** Whether the font `/F1` is used. */
+  /** Whether a font is used. */
   text: boolean;
+  /** The faces used (DRAW-001: bold or italic parts of a text). */
+  faces: Face[];
   /** Graphics states by name: their opacity. */
   states: Record<string, number>;
 }
@@ -293,11 +302,15 @@ interface Paint {
   color: string;
   size: number;
   anchor: string;
+  weight: string;
+  slant: string;
+  decoration: string;
 }
 
 const INHERITED: [keyof Paint, string][] = [
   ['stroke', 'stroke'], ['fill', 'fill'], ['width', 'stroke-width'], ['dash', 'stroke-dasharray'], ['cap', 'stroke-linecap'],
   ['join', 'stroke-linejoin'], ['color', 'color'], ['size', 'font-size'], ['anchor', 'text-anchor'],
+  ['weight', 'font-weight'], ['slant', 'font-style'], ['decoration', 'text-decoration'],
 ];
 
 /** The painting properties of an element, from its attributes and style, over those of its parent. */
@@ -344,7 +357,8 @@ export function drawingOps(d: Drawing, font: VectorFont): VectorOps | null {
     states[name] = Math.round(alpha * 100) / 100;
     return `/${name} gs`;
   };
-  const base: Paint = { stroke: 'none', fill: '#000000', width: 1, dash: 'none', cap: 'butt', join: 'miter', opacity: 1, color: '#000000', size: 16, anchor: 'start' };
+  const base: Paint = { stroke: 'none', fill: '#000000', width: 1, dash: 'none', cap: 'butt', join: 'miter', opacity: 1, color: '#000000', size: 16, anchor: 'start', weight: 'normal', slant: 'normal', decoration: 'none' };
+  const faces = new Set<Face>();
 
   const paintPath = (geometry: string, p: Paint, fillable = true): void => {
     if (!geometry) return;
@@ -366,18 +380,43 @@ export function drawingOps(d: Drawing, font: VectorFont): VectorOps | null {
     out.push('q', ...head, geometry, fill && stroke ? 'B' : fill ? 'f' : 'S', 'Q');
   };
 
-  const textOps = (x: number, y: number, s: string, p: Paint): boolean => {
-    if (!s) return true;
-    const encoded = font.encode(s);
-    if (encoded === null) return false;
+  /**
+   * A piece of text at x, y; its width, or null when the fonts cannot show it.
+   * What the face lacks is taken from the Symbol font, a character at a time.
+   */
+  const textOps = (x: number, y: number, s: string, p: Paint, anchored = true): number | null => {
+    if (!s) return 0;
+    const main = faceOf(p);
+    const parts: { face: Face; text: string }[] = [];
+    if (font.encode(s, main) !== null) parts.push({ face: main, text: s });
+    else {
+      for (const c of s) {
+        const face: Face | null = font.encode(c, main) !== null ? main : font.encode(c, 'S') !== null ? 'S' : null;
+        if (!face) return null;
+        const last = parts[parts.length - 1];
+        if (last?.face === face) last.text += c;
+        else parts.push({ face, text: c });
+      }
+    }
+    const widths = parts.map((part) => font.width(part.text, p.size, part.face));
+    const w = widths.reduce((a, b) => a + b, 0);
     const fill = parseColor(p.fill, p.color);
-    if (!fill) return true;
+    if (!fill) return w;
     text = true;
-    const w = font.width(s, p.size);
-    const dx = p.anchor === 'middle' ? -w / 2 : p.anchor === 'end' ? -w : 0;
-    // The text upright again in the drawing's space, where y goes down.
-    out.push('q', ...(p.opacity < 1 ? [state(p.opacity)] : []), `${fill.map(n).join(' ')} rg`, 'BT', `/F1 ${n(p.size)} Tf`, `1 0 0 -1 ${n(x + dx)} ${n(y)} Tm`, `${encoded} Tj`, 'ET', 'Q');
-    return true;
+    const dx = !anchored ? 0 : p.anchor === 'middle' ? -w / 2 : p.anchor === 'end' ? -w : 0;
+    const color = `${fill.map(n).join(' ')}`;
+    out.push('q', ...(p.opacity < 1 ? [state(p.opacity)] : []), `${color} rg`, 'BT');
+    let at = x + dx;
+    parts.forEach((part, i) => {
+      faces.add(part.face);
+      // The text upright again in the drawing's space, where y goes down.
+      out.push(`/${FACE_FONT[part.face]} ${n(p.size)} Tf`, `1 0 0 -1 ${n(at)} ${n(y)} Tm`, `${font.encode(part.text, part.face)!} Tj`);
+      at += widths[i]!;
+    });
+    out.push('ET');
+    if (p.decoration.includes('underline')) out.push(`${color} RG`, `${n(p.size / 14)} w`, `${n(x + dx)} ${n(y + p.size * 0.12)} m`, `${n(x + dx + w)} ${n(y + p.size * 0.12)} l`, 'S');
+    out.push('Q');
+    return w;
   };
 
   const num = (el: Element, name: string, fallback = 0): number => {
@@ -419,15 +458,29 @@ export function drawingOps(d: Drawing, font: VectorFont): VectorOps | null {
         paintPath(pathOps(el.getAttribute('d') ?? ''), p);
         break;
       case 'text': {
-        const x = num(el, 'x');
-        let y = num(el, 'y');
-        const spans = Array.from(el.children).filter((c) => c.localName === 'tspan');
-        if (!spans.length) ok = textOps(x, y, el.textContent ?? '', p);
-        for (const span of spans) {
-          y += num(span, 'dy');
-          if (span.hasAttribute('y')) y = num(span, 'y');
-          if (!textOps(span.hasAttribute('x') ? num(span, 'x') : x, y, span.textContent ?? '', paintOf(span, p))) ok = false;
-        }
+        // The pen moves along the text, tspans setting it (x, y, dx, dy) and their own looks.
+        const pen = { x: num(el, 'x'), y: num(el, 'y') };
+        // Centred on y (the labels of symbols): the baseline a little below.
+        const baseline = el.getAttribute('dominant-baseline');
+        if (baseline === 'central' || baseline === 'middle') pen.y += p.size * 0.35;
+        // One piece in its element: anchored as SVG does; parts of a line follow each other.
+        const pieces = Array.from(el.querySelectorAll('*')).filter((c) => c.localName === 'tspan' && !c.querySelector('tspan')).length;
+        const run = (node: Element, paint: Paint): void => {
+          for (const child of Array.from(node.childNodes)) {
+            if (child.nodeType === 3) {
+              const w = textOps(pen.x, pen.y, child.textContent ?? '', paint, pieces <= 1 || paint.anchor === 'start' || node !== el);
+              if (w === null) ok = false;
+              else pen.x += w;
+            } else if (child instanceof Element && child.localName === 'tspan') {
+              if (child.hasAttribute('x')) pen.x = num(child, 'x');
+              if (child.hasAttribute('y')) pen.y = num(child, 'y');
+              pen.x += num(child, 'dx');
+              pen.y += num(child, 'dy');
+              run(child, paintOf(child, paint));
+            }
+          }
+        };
+        run(el, p);
         break;
       }
       default:
@@ -439,7 +492,25 @@ export function drawingOps(d: Drawing, font: VectorFont): VectorOps | null {
   };
 
   for (const child of Array.from(root.children)) if (!walk(child, base)) return null;
-  return { ops: out.join('\n'), text, states };
+  return { ops: out.join('\n'), text, faces: [...faces], states };
+}
+
+function faceOf(p: Paint): Face {
+  const bold = p.weight === 'bold' || p.weight === 'bolder' || Number(p.weight) >= 600;
+  const italic = p.slant === 'italic' || p.slant === 'oblique';
+  return bold && italic ? 'BI' : bold ? 'B' : italic ? 'I' : 'R';
+}
+
+/** The faces a drawing's texts may need, to embed their fonts first. */
+export function drawingFaces(d: Drawing): Face[] {
+  const faces = new Set<Face>(['R']);
+  // Beyond the WinAnsi characters: the Symbol font may have them.
+  if (![...drawingBody(d)].every(winAnsi)) faces.add('S');
+  for (const s of d.shapes) {
+    if (s.kind !== 'text') continue;
+    for (const r of s.runs ?? []) faces.add(r.bold && r.italic ? 'BI' : r.bold ? 'B' : r.italic ? 'I' : 'R');
+  }
+  return [...faces];
 }
 
 /** The characters of the standard fonts' WinAnsi encoding beyond Latin-1. */
@@ -449,8 +520,12 @@ const WIN_ANSI_EXTRA = '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—�
  * A font of the WinAnsi encoding (Helvetica…), to tell whether a drawing can
  * be written as vectors with it; its widths are rough.
  */
+const winAnsi = (c: string): boolean => (c >= ' ' && c <= '~') || (c >= '\u00a0' && c <= '\u00ff') || WIN_ANSI_EXTRA.includes(c) || c === '\n' || c === '\t';
+/** What the Symbol font has beyond WinAnsi: Greek letters, signs of mathematics, arrows. */
+const SYMBOL = /^[\u0391-\u03a9\u03b1-\u03c9\u03d1\u03d2\u03d5\u03d6\u2126\u2022\u2026\u2032\u2033\u2190-\u2195\u21d0-\u21d4\u2200-\u22c5\u2320\u2321\u25ca\u2660-\u2666]$/u;
+
 export const WIN_ANSI: VectorFont = {
-  encode: (text) => ([...text].every((c) => (c >= ' ' && c <= '~') || (c >= '\u00a0' && c <= '\u00ff') || WIN_ANSI_EXTRA.includes(c)) ? '<>' : null),
+  encode: (text, face) => ([...text].every((c) => (face === 'S' ? SYMBOL.test(c) || c === ' ' : winAnsi(c))) ? '<>' : null),
   width: (text, size) => text.length * size * 0.5,
 };
 

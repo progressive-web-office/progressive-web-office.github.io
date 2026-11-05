@@ -491,7 +491,15 @@ textarea.pdf-field { resize: none; }
 .draw-symbol:hover, .draw-symbol:focus-visible { border-color: var(--accent, #2563eb); }
 .draw-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .draw-scroll { position: relative; flex: 1; overflow: auto; background: #e5e7eb; border-radius: 6px; padding: 12px; }
-.draw-text-editor { position: absolute; z-index: 2; margin: 0; padding: 2px; border: 1px dashed var(--accent, #2563eb); background: rgba(255, 255, 255, 0.85); font-family: sans-serif; line-height: 1.2; resize: none; overflow: hidden; white-space: pre; min-width: 3em; }
+.draw-text-editor { position: absolute; z-index: 2; margin: 0; padding: 2px; border: 1px dashed var(--accent, #2563eb); background: rgba(255, 255, 255, 0.85); font-family: sans-serif; line-height: 1.2; white-space: pre; min-width: 3em; min-height: 1.2em; outline: none; }
+.draw-text-editor[hidden] { display: none; }
+.draw-look-group { display: inline-flex; gap: 4px; align-items: center; }
+.draw-look-group[hidden] { display: none; }
+.draw-look { min-width: 2em; }
+.draw-bold { font-weight: bold; }
+.draw-italic { font-style: italic; }
+.draw-underline { text-decoration: underline; }
+.draw-look[aria-pressed="true"] { background: var(--accent, #2563eb); color: #fff; }
 .draw-stage { display: block; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); touch-action: none; cursor: crosshair; color: #000; }
 .draw-stage[data-tool="select"] { cursor: default; }
 .draw-stage:focus-visible { outline: 2px solid var(--accent, #2563eb); outline-offset: 2px; }
@@ -506,6 +514,16 @@ textarea.pdf-field { resize: none; }
 .draw-objects button[aria-pressed="true"] { background: var(--accent, #2563eb); color: #fff; }
 .draw-size { width: 5em; }
 .draw-alt { width: 18em; }
+/* PDF-021: the whole window for the page. */
+.draw-dialog.draw-full { width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; border-radius: 0; padding: 6px 10px; }
+.draw-head { display: flex; align-items: center; gap: 12px; }
+.draw-head h2 { flex: 1; }
+.draw-head .dialog-actions { margin: 0; }
+.draw-full .draw-body { display: flex; }
+.draw-full .draw-main { flex: 1; }
+.draw-full .draw-library { width: 220px; flex: none; }
+.draw-full .draw-side { width: 180px; flex: none; }
+.draw-full .draw-library[hidden], .draw-full .draw-side[hidden] { display: none; }
 .draw-zoom { min-width: 3.5em; text-align: center; font-variant-numeric: tabular-nums; }
 .paint-dialog { width: min(98vw, 1200px); max-width: none; height: min(96vh, 900px); display: none; flex-direction: column; gap: 6px; }
 .paint-dialog[open] { display: flex; }

@@ -401,7 +401,9 @@ any other tool. Planned, the most useful first:
   basic PAdES)
 - ✅ Text search in PDF (PDF-017)
 - ✅ Text boxes, arrows and shapes drawn on a PDF page with the vector drawing
-  editor, saved as vector annotations editable again (PDF-021); next: the
+  editor, saved as vector annotations editable again (PDF-021), with bold,
+  italic, sizes and colours on parts of a text (DRAW-020); drawings and
+  schematics downloaded as vector PDF (DRAW-021); next: the
   PDF's own text edited in place, more fonts for other scripts
 
 ### Files and fidelity

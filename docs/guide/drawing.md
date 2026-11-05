@@ -33,8 +33,21 @@ whole.
 | ╱ Line, ➝ Arrow | Drag from one end to the other; an end dropped on a connection point stays attached to it |
 
 | ✎ Freehand | Draw with the mouse, the finger or a pen; the stroke is smoothed |
-| T Text | Click where the text goes and type it in place: <kbd>Enter</kbd> for a new line, <kbd>Escape</kbd> when done; its **Size** is in the bar above; a double click on a text edits it again |
+| T Text | Click where the text goes and type it in place: <kbd>Enter</kbd> for a new line, <kbd>Escape</kbd> when done; a double click on a text edits it again. See [Formatting text](#formatting-text) |
 | ⌐ Wire | Drag from a pin to another pin: the wire is drawn in right angles |
+
+### Formatting text
+
+The bar above the drawing has the **Size**, **B** (bold), **I** (italic),
+**U** (underline) and **Colour** of a text:
+
+- while typing, they apply to the **selected part** only — a word in bold,
+  a larger title line, an amount in red — the rest keeping its look;
+  <kbd>Ctrl</kbd>+<kbd>B</kbd>, <kbd>Ctrl</kbd>+<kbd>I</kbd> and
+  <kbd>Ctrl</kbd>+<kbd>U</kbd> work too;
+- with a text selected (not being typed), they apply to the **whole text**.
+
+Each line is as high as its largest part.
 
 A line selected shows its properties: **arrow at the start**, **arrow at
 the end**, and **right angles** (routed in horizontal and vertical
@@ -154,6 +167,11 @@ Tab; a click (or Enter) selects it, and the arrows then move it.
   cannot see it.
 - **Download SVG** and **Download PNG** (twice the size, for sharp printing)
   save the drawing on its own.
+- **Download PDF** saves it as a PDF page of its size, drawn with vectors:
+  sharp at any zoom, its text searchable and selectable — a schematic ready to
+  print or send. Greek letters and signs (Ω, µ, ≤, →…) come from the
+  standard Symbol font; a text in other scripts (Chinese…) makes the page a
+  picture of the drawing instead.
 
 **Done** puts the drawing in the document (or updates it), **Cancel** leaves
 it as it was.

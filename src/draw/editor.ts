@@ -7,9 +7,10 @@ import { button, h } from '../app/dom';
 import { t } from '../i18n';
 import {
   bbox, connectionPoints, duplicate, emptyDrawing, formatValue, mirror, moveShapes, newId, placeSymbol, reconnect, remove, rotate, route, shapeById, snap,
-  type Drawing, type End, type LineShape, type Pt, type Shape, type TextShape,
+  type Drawing, type End, type LineShape, type Pt, type Shape, type TextRun, type TextShape,
 } from './model';
 import { exportPng } from './raster';
+import { lineSizes, normalizeRuns, runsFromHtml, runsOf, runsToHtml, styleRuns } from './rich';
 import { drawingBody, toSvg } from './svg';
 import { searchSymbols, symbolDef, type SymbolCategory, type SymbolDef } from './symbols';
 
@@ -25,6 +26,11 @@ export interface DrawOptions {
   fixedSize?: boolean;
   /** The tool chosen when the editor opens. */
   tool?: Tool;
+  /**
+   * PDF-021: the whole window for the drawing, fitted to its width; the
+   * symbols and objects panels hidden until asked for, no export buttons.
+   */
+  full?: boolean;
 }
 
 /** Sizes of text offered (DRAW-001, PDF-021). */
@@ -112,8 +118,17 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
     const textInput = h('input', { type: 'text', size: 18, 'aria-label': t('draw.label') });
     const textSize = h('select', { 'aria-label': t('draw.textSize') }, ...TEXT_SIZES.map((v) => h('option', { value: String(v), selected: v === style.size }, String(v))));
     const textSizeLabel = h('label', {}, `${t('draw.textSize')} `, textSize);
+    // DRAW-020, PDF-021: the look of a part of a text — what is selected while typing — or of the whole text.
+    const lookButton = (look: 'bold' | 'italic' | 'underline', text: string, key: string): HTMLButtonElement => {
+      const b = button(t(`draw.${look}`), () => setLook(look), { text, title: `${t(`draw.${look}`)} (Ctrl+${key})`, className: `draw-look draw-${look}` });
+      // The text being typed keeps the focus, and what is selected in it.
+      b.addEventListener('mousedown', (e) => e.preventDefault());
+      return b;
+    };
+    const textColor = h('input', { type: 'color', value: '#000000', 'aria-label': t('draw.textColor') });
+    const lookProps = h('span', { class: 'draw-look-group' }, lookButton('bold', 'B', 'B'), lookButton('italic', 'I', 'I'), lookButton('underline', 'U', 'U'), h('label', {}, `${t('draw.textColor')} `, textColor));
     const symbolProps = h('span', { class: 'draw-props-group', hidden: true }, h('label', {}, `${t('draw.ref')} `, refInput), h('label', {}, `${t('draw.value')} `, valueInput));
-    const textProps = h('span', { class: 'draw-props-group', hidden: true }, h('label', {}, `${t('draw.label')} `, textInput), textSizeLabel);
+    const textProps = h('span', { class: 'draw-props-group', hidden: true }, h('label', {}, `${t('draw.label')} `, textInput), textSizeLabel, lookProps);
     // DRAW-017: the arrows of a line and its routing in right angles.
     const arrowStart = h('input', { type: 'checkbox' });
     const arrowEnd = h('input', { type: 'checkbox' });
@@ -198,6 +213,8 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
     });
     textSize.addEventListener('change', () => {
       style.size = Number(textSize.value);
+      // A part of the text being typed.
+      if (editing && wrapSelection({ size: style.size })) return;
       const texts = sel().filter((x): x is TextShape => x.kind === 'text');
       if (!texts.length) return;
       snapshot();
@@ -208,7 +225,10 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
       const s = sel()[0];
       if (!s) return;
       snapshot();
-      if (s.kind === 'text') s.text = textInput.value || s.text;
+      if (s.kind === 'text' && textInput.value && textInput.value !== s.text) {
+        s.text = textInput.value;
+        delete s.runs;
+      }
       else if (s.kind === 'line') s.label = textInput.value.trim() || undefined;
       render();
     });
@@ -262,7 +282,14 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
       }
       textProps.hidden = one?.kind !== 'text' && one?.kind !== 'line' && tool !== 'text';
       textSizeLabel.hidden = one ? one.kind !== 'text' : tool !== 'text';
-      if (one?.kind === 'text') textSize.value = String(one.size ?? 16);
+      lookProps.hidden = textSizeLabel.hidden;
+      if (one?.kind === 'text') {
+        textSize.value = String(one.size ?? 16);
+        const color = one.fill ?? one.stroke ?? '#000000';
+        if (/^#[0-9a-f]{6}$/i.test(color)) textColor.value = color;
+        const runs = runsOf(one);
+        for (const look of ['bold', 'italic', 'underline'] as const) lookProps.querySelector(`.draw-${look}`)?.setAttribute('aria-pressed', String(runs.every((r) => r[look])));
+      }
       if (one?.kind === 'symbol') {
         if (document.activeElement !== refInput) refInput.value = one.ref ?? '';
         if (document.activeElement !== valueInput) valueInput.value = one.value ?? '';
@@ -566,67 +593,182 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
     };
 
     // --- text typed in place (PDF-021) ---------------------------------------------
-    const textEditor = h('textarea', { class: 'draw-text-editor', 'aria-label': t('draw.label'), rows: '1', spellcheck: 'true', hidden: true });
-    const fitText = (): void => {
-      const lines = textEditor.value.split('\n');
-      textEditor.rows = Math.max(1, lines.length);
-      textEditor.style.width = `${Math.max(3, ...lines.map((l) => l.length + 1)) * 0.6}em`;
-    };
+    // Editable rich text: Ctrl+B, Ctrl+I, Ctrl+U, and the size and colour of what is selected.
+    const textEditor = h('div', { class: 'draw-text-editor', contenteditable: 'true', role: 'textbox', 'aria-multiline': 'true', 'aria-label': t('draw.label'), spellcheck: 'true', hidden: true });
+    /** Screen pixels for a drawing unit, while the text is typed. */
+    let editScale = 1;
+    let editRange: Range | undefined;
     const placeText = (s: TextShape): void => {
       const box = svg.getBoundingClientRect();
       const area = stage.getBoundingClientRect();
-      const k = box.width && d.width ? box.width / d.width : zoom;
-      const size = (s.size ?? 16) * k;
+      editScale = box.width && d.width ? box.width / d.width : zoom;
+      const k = editScale;
+      const first = lineSizes(s)[0] ?? s.size ?? 16;
       Object.assign(textEditor.style, {
         left: `${box.left - area.left + stage.scrollLeft + s.x * k - 3}px`,
-        top: `${box.top - area.top + stage.scrollTop + (s.y - (s.size ?? 16) * 0.95) * k - 3}px`,
-        fontSize: `${size}px`,
+        top: `${box.top - area.top + stage.scrollTop + (s.y - first * 0.95) * k - 3}px`,
+        fontSize: `${(s.size ?? 16) * k}px`,
         color: s.fill ?? s.stroke ?? '#000000',
       });
     };
+    const caretAtEnd = (): void => {
+      const r = document.createRange();
+      r.selectNodeContents(textEditor);
+      r.collapse(false);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(r);
+    };
+    const look = (s: TextShape): string => JSON.stringify([s.text, s.runs ?? null, s.size ?? null, s.fill ?? null]);
     function openText(s: TextShape, created: boolean): void {
       if (editing) closeText();
-      editing = { id: s.id, created, before: s.text };
+      editing = { id: s.id, created, before: look(s) };
       selected = [s.id];
-      textEditor.value = s.text;
       textEditor.hidden = false;
       placeText(s);
-      fitText();
+      textEditor.innerHTML = runsToHtml(runsOf(s), editScale);
       render();
       textEditor.focus();
       // Typing goes on at the end.
-      textEditor.setSelectionRange(s.text.length, s.text.length);
+      caretAtEnd();
     }
+    /** The runs typed, without the blank at the end. */
+    const typedRuns = (s: TextShape): TextRun[] => {
+      const runs = runsFromHtml(textEditor, editScale, { size: s.size ?? 16, fill: s.fill ?? s.stroke ?? '#000000' });
+      while (runs.length && !runs[runs.length - 1]!.text.trimEnd()) runs.pop();
+      const last = runs[runs.length - 1];
+      if (last) last.text = last.text.replace(/\s+$/, '');
+      return runs;
+    };
     function closeText(): void {
       const ed = editing;
       if (!ed) return;
       editing = undefined;
+      editRange = undefined;
       textEditor.hidden = true;
       const s = shapeById(d, ed.id);
-      const text = textEditor.value.replace(/\s+$/, '');
       if (s?.kind === 'text') {
+        const runs = typedRuns(s);
+        const text = runs.map((r) => r.text).join('');
         if (!text.trim()) {
           remove(d, [s.id]);
           selected = [];
           // Nothing typed: nothing to undo either.
           if (ed.created) undo.pop();
-        } else if (text !== ed.before) {
-          if (!ed.created) snapshot();
-          s.text = text;
+        } else {
+          const next: TextShape = { ...s, text };
+          const rich = normalizeRuns(runs);
+          if (rich) next.runs = rich;
+          else delete next.runs;
+          if (look(next) !== ed.before) {
+            if (!ed.created) snapshot();
+            s.text = text;
+            if (rich) s.runs = rich;
+            else delete s.runs;
+          }
         }
       }
+      textEditor.replaceChildren();
       render();
       svg.focus();
     }
-    textEditor.addEventListener('input', fitText);
-    textEditor.addEventListener('blur', () => closeText());
+    /** A look given to what is selected in the text typed; false when nothing is. */
+    function wrapSelection(set: { size?: number; fill?: string }): boolean {
+      const r = editRange;
+      if (!r || r.collapsed || !textEditor.contains(r.commonAncestorContainer)) {
+        textEditor.focus();
+        return false;
+      }
+      const span = document.createElement('span');
+      span.append(r.extractContents());
+      // The parts inside take the new look too.
+      for (const inner of Array.from(span.querySelectorAll<HTMLElement>('[style], [data-size], font'))) {
+        if (set.size !== undefined) {
+          inner.style.fontSize = '';
+          delete inner.dataset.size;
+        }
+        if (set.fill !== undefined) {
+          inner.style.color = '';
+          inner.removeAttribute('color');
+        }
+      }
+      if (set.size !== undefined) {
+        span.dataset.size = String(set.size);
+        span.style.fontSize = `${set.size * editScale}px`;
+      }
+      if (set.fill !== undefined) span.style.color = set.fill;
+      r.insertNode(span);
+      const again = document.createRange();
+      again.selectNodeContents(span);
+      textEditor.focus();
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(again);
+      editRange = again;
+      return true;
+    }
+    /** Bold, italic or underline: on what is selected while typing, else on the whole of the texts selected. */
+    function setLook(which: 'bold' | 'italic' | 'underline'): void {
+      if (editing) {
+        textEditor.focus();
+        document.execCommand(which);
+        return;
+      }
+      const texts = sel().filter((x): x is TextShape => x.kind === 'text');
+      if (!texts.length) return;
+      snapshot();
+      const on = !texts.every((x) => runsOf(x).every((r) => r[which]));
+      for (const x of texts) {
+        const rich = normalizeRuns(styleRuns(runsOf(x), { [which]: on }));
+        if (rich) x.runs = rich;
+        else delete x.runs;
+      }
+      render();
+    }
+    textColor.addEventListener('input', () => {
+      if (editing && wrapSelection({ fill: textColor.value })) return;
+      style.stroke = textColor.value;
+      const texts = sel().filter((x): x is TextShape => x.kind === 'text');
+      if (!texts.length) return;
+      snapshot();
+      for (const x of texts) {
+        x.fill = textColor.value;
+        const rich = x.runs && normalizeRuns(styleRuns(runsOf(x), { fill: undefined }));
+        if (rich) x.runs = rich;
+        else delete x.runs;
+      }
+      render();
+    });
+    document.addEventListener('selectionchange', () => {
+      if (!editing) return;
+      const selection = window.getSelection();
+      if (selection?.rangeCount && textEditor.contains(selection.anchorNode)) editRange = selection.getRangeAt(0).cloneRange();
+    });
+    // The properties of the text may take the focus for a while (its size, its colour).
+    const inProps = (el: EventTarget | null): boolean => el instanceof Element && !!el.closest('.draw-props');
+    textEditor.addEventListener('blur', (e) => {
+      if (!inProps(e.relatedTarget)) closeText();
+    });
+    textProps.addEventListener('focusout', (e) => {
+      if (editing && e.relatedTarget !== textEditor && !inProps(e.relatedTarget)) closeText();
+    });
     textEditor.addEventListener('keydown', (e) => {
       e.stopPropagation();
       // Enter makes a new line; Escape, or Ctrl+Enter, is done.
       if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
         e.preventDefault();
         closeText();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        document.execCommand('insertLineBreak');
       }
+    });
+    // Text pasted as text, its look the box's.
+    textEditor.addEventListener('paste', (e) => {
+      const text = e.clipboardData?.getData('text/plain');
+      if (text === undefined) return;
+      e.preventDefault();
+      document.execCommand('insertText', false, text);
     });
     textEditor.addEventListener('pointerdown', (e) => e.stopPropagation());
     stage.append(textEditor);
@@ -858,6 +1000,14 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
     };
     const exportSvg = (): void => save(new Blob([toSvg(d)], { type: 'image/svg+xml' }), 'drawing.svg');
     const exportAsPng = async (): Promise<void> => save(await exportPng(d, 2), 'drawing.png');
+    // DRAW-021: a PDF of the drawing, as vectors; a picture of it when its text needs more than the standard fonts.
+    const exportAsPdf = async (): Promise<void> => {
+      if (editing) closeText();
+      const [{ drawingPdf }, { drawingOps, WIN_ANSI }] = await Promise.all([import('../pdf/forms'), import('../pdf/vector')]);
+      const png = drawingOps(d, WIN_ANSI) ? undefined : new Uint8Array(await (await exportPng(d, 3, '#ffffff')).arrayBuffer());
+      const bytes = await drawingPdf(d, png);
+      save(new Blob([bytes as BlobPart], { type: 'application/pdf' }), 'drawing.pdf');
+    };
     // DRAW-009: the netlist and the parts of an electrical schematic.
     const electrical = (): boolean => d.shapes.some((s) => s.kind === 'symbol' && symbolDef(s.sym)?.category === 'electrical');
     const exportNetlist = async (): Promise<void> => {
@@ -871,7 +1021,21 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
     const netlistBtn = button(t('draw.netlist'), () => void exportNetlist(), { title: t('draw.netlistTitle') });
     const bomBtn = button(t('draw.bom'), () => void exportBom(), { title: t('draw.bomTitle') });
 
-    const dialog = h('dialog', { class: 'dialog draw-dialog', 'aria-labelledby': 'draw-title' });
+    const dialog = h('dialog', { class: `dialog draw-dialog${options.full ? ' draw-full' : ''}`, 'aria-labelledby': 'draw-title' });
+    const library = h('aside', { class: 'draw-library', 'aria-label': t('draw.symbols') }, search, category, list);
+    const side = h('aside', { class: 'draw-side' }, h('h3', {}, t('draw.objects')), objects);
+    // PDF-021: panels shown on demand, the page keeping the room.
+    const panelToggle = (panel: HTMLElement, label: string, text: string): HTMLButtonElement => {
+      panel.hidden = true;
+      const b = button(label, () => {
+        panel.hidden = !panel.hidden;
+        b.setAttribute('aria-pressed', String(!panel.hidden));
+      }, { text, title: label });
+      b.setAttribute('aria-pressed', 'false');
+      return b;
+    };
+    const panelButtons = options.full ? [panelToggle(library, t('draw.symbols'), '⌘'), panelToggle(side, t('draw.objects'), '☰')] : [];
+    const actions = h('div', { class: 'dialog-actions' }, button(t('common.cancel'), () => finish(null)), button(t('draw.done'), () => finish(d), { className: 'primary' }));
     const finish = (value: Drawing | null): void => {
       if (editing) closeText();
       dialog.close();
@@ -879,7 +1043,7 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
       resolve(value);
     };
     dialog.append(
-      h('h2', { id: 'draw-title' }, options.title ?? t('draw.title')),
+      options.full ? h('div', { class: 'draw-head' }, h('h2', { id: 'draw-title' }, options.title ?? t('draw.title')), actions) : h('h2', { id: 'draw-title' }, options.title ?? t('draw.title')),
       h(
         'div',
         { class: 'draw-toolbar', role: 'toolbar', 'aria-label': t('draw.tools') },
@@ -905,6 +1069,7 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
           h('label', {}, gridBox, ` ${t('draw.grid')}`),
           h('label', {}, snapBox, ` ${t('draw.snap')}`),
         ),
+        ...(panelButtons.length ? [h('span', { class: 'draw-group' }, ...panelButtons)] : []),
       ),
       h(
         'div',
@@ -921,23 +1086,28 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
       h(
         'div',
         { class: 'draw-body' },
-        h('aside', { class: 'draw-library', 'aria-label': t('draw.symbols') }, search, category, list),
+        library,
         h('div', { class: 'draw-main' }, stage, status),
-        h('aside', { class: 'draw-side' }, h('h3', {}, t('draw.objects')), objects),
+        side,
       ),
-      h(
-        'div',
-        { class: 'draw-footer' },
-        h('label', {}, `${t('draw.alt')} `, alt),
-        ...(options.fixedSize
-          ? []
-          : [h('label', {}, `${t('draw.widthPx')} `, widthSize), h('label', {}, `${t('draw.heightPx')} `, heightSize), button(t('draw.fit'), fit, { title: t('draw.fitTitle') })]),
-        button(t('draw.exportSvg'), exportSvg),
-        button(t('draw.exportPng'), () => void exportAsPng()),
-        netlistBtn,
-        bomBtn,
-      ),
-      h('div', { class: 'dialog-actions' }, button(t('common.cancel'), () => finish(null)), button(t('draw.done'), () => finish(d), { className: 'primary' })),
+      ...(options.full
+        ? []
+        : [
+            h(
+              'div',
+              { class: 'draw-footer' },
+              h('label', {}, `${t('draw.alt')} `, alt),
+              ...(options.fixedSize
+                ? []
+                : [h('label', {}, `${t('draw.widthPx')} `, widthSize), h('label', {}, `${t('draw.heightPx')} `, heightSize), button(t('draw.fit'), fit, { title: t('draw.fitTitle') })]),
+              button(t('draw.exportSvg'), exportSvg),
+              button(t('draw.exportPng'), () => void exportAsPng()),
+              button(t('draw.exportPdf'), () => void exportAsPdf(), { title: t('draw.exportPdfTitle') }),
+              netlistBtn,
+              bomBtn,
+            ),
+            actions,
+          ]),
     );
     dialog.addEventListener('cancel', (e) => {
       e.preventDefault();
@@ -948,6 +1118,12 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
     else dialog.setAttribute('open', '');
     syncTools();
     render();
+    if (options.full) {
+      // The page as wide as the window allows, read from the top.
+      const box = getComputedStyle(stage);
+      const room = stage.clientWidth - parseFloat(box.paddingLeft) - parseFloat(box.paddingRight);
+      if (room > 0 && d.width) zoomPan.setZoom(Math.min(4, room / d.width));
+    }
     svg.focus();
   });
 }

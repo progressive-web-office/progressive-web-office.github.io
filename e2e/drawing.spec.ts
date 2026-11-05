@@ -88,6 +88,20 @@ test('draws a schematic with symbols and wires, inserted in a document and edite
   const bom = page.waitForEvent('download');
   await dialog.getByRole('button', { name: 'Bill of materials' }).click();
   expect((await import('node:fs')).readFileSync((await (await bom).path())!, 'utf8')).toContain('1,R1,Resistor,4.7 kΩ');
+  // DRAW-021: the schematic as a PDF page, in vectors, its text searchable (Ω from the Symbol font).
+  const pdf = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: 'Download PDF' }).click();
+  const pdfFile = await pdf;
+  expect(pdfFile.suggestedFilename()).toBe('drawing.pdf');
+  const { PDFDocument, PDFName, decodePDFRawStream } = await import('@pdfme/pdf-lib');
+  type Dict = import('@pdfme/pdf-lib').PDFDict;
+  const pdfDoc = await PDFDocument.load(new Uint8Array((await import('node:fs')).readFileSync((await pdfFile.path())!)));
+  expect(pdfDoc.getPageCount()).toBe(1);
+  const xobjects = pdfDoc.getPage(0).node.Resources()!.lookup(PDFName.of('XObject')) as Dict;
+  const form = xobjects.lookup(xobjects.keys()[0]!) as import('@pdfme/pdf-lib').PDFRawStream;
+  const ops = new TextDecoder().decode(decodePDFRawStream(form).decode());
+  expect(ops).toContain('/F5 ');
+  expect(ops).not.toContain('/Im1');
   await dialog.getByLabel('Description').fill('An RC circuit');
   await dialog.getByRole('button', { name: 'Done' }).click();
   await expect(dialog).toBeHidden();

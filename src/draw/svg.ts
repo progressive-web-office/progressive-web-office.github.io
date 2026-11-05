@@ -2,7 +2,8 @@
  * DRAW-003: a drawing saved as a standalone SVG, the editable drawing kept in
  * its metadata; an SVG made elsewhere opened with its simple shapes editable.
  */
-import { bbox, junctions, type Drawing, type LineShape, type Pt, type Shape, type Style, type SymbolShape } from './model';
+import { bbox, junctions, type Drawing, type LineShape, type Pt, type Shape, type Style, type SymbolShape, type TextShape } from './model';
+import { lineGap, lineSizes, runLines, runsOf } from './rich';
 import { symbolDef } from './symbols';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -47,6 +48,27 @@ function textEl(x: number, y: number, text: string, size: number, color: string,
   const lines = text.split('\n');
   const tspans = lines.length === 1 ? esc(text) : lines.map((l, i) => `<tspan x="${n(x)}" dy="${i ? n(size * 1.2) : 0}">${esc(l)}</tspan>`).join('');
   return `<text x="${n(x)}" y="${n(y)}" font-size="${n(size)}" fill="${esc(color)}"${anchor === 'start' ? '' : ` text-anchor="${anchor}"`}${extra}>${tspans}</text>`;
+}
+
+/** DRAW-001, PDF-021: a text whose parts have their own looks: one tspan a line, one inside for each part. */
+function richTextEl(s: TextShape, extra: string): string {
+  const base = s.size ?? 16;
+  const sizes = lineSizes(s);
+  const lines = runLines(runsOf(s)).map((line, i) => {
+    const parts = line
+      .map((r) => {
+        const a: string[] = [];
+        if (r.size !== undefined) a.push(`font-size="${n(r.size)}"`);
+        if (r.bold) a.push('font-weight="bold"');
+        if (r.italic) a.push('font-style="italic"');
+        if (r.underline) a.push('text-decoration="underline"');
+        if (r.fill) a.push(`fill="${esc(r.fill)}"`);
+        return a.length ? `<tspan ${a.join(' ')}>${esc(r.text)}</tspan>` : esc(r.text);
+      })
+      .join('');
+    return `<tspan x="${n(s.x)}" dy="${i ? n(lineGap(sizes[i - 1]!, sizes[i]!)) : 0}">${parts || ' '}</tspan>`;
+  });
+  return `<text x="${n(s.x)}" y="${n(s.y)}" font-size="${n(base)}" fill="${esc(s.fill ?? s.stroke ?? DEFAULT_STROKE)}"${extra}>${lines.join('')}</text>`;
 }
 
 function symbolSvg(s: SymbolShape): string {
@@ -118,6 +140,7 @@ export function shapeSvg(s: Shape): string {
     case 'free':
       return `<path${id} d="${smoothPath(s.points)}"${styleAttrs({ width: 2.5, ...s })} stroke-linecap="round" stroke-linejoin="round"/>`;
     case 'text':
+      if (s.runs && runsOf(s) === s.runs) return richTextEl(s, `${id}${s.opacity !== undefined && s.opacity < 1 ? ` opacity="${n(s.opacity)}"` : ''}`);
       return textEl(s.x, s.y, s.text, s.size ?? 16, s.fill ?? s.stroke ?? DEFAULT_STROKE, 'start', `${id}${s.opacity !== undefined && s.opacity < 1 ? ` opacity="${n(s.opacity)}"` : ''}`);
     case 'symbol':
       return symbolSvg(s);

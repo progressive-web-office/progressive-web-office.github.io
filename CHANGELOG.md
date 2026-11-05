@@ -21,13 +21,26 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
   size chosen; a double click edits it again. Saved as a stamp annotation
   drawn with vectors (the text stays text), shown by every PDF reader, and
   editable again when the PDF is opened here; *Flattened PDF* makes it part
-  of the page.
+  of the page. The editor takes the whole window there, the page fitted to
+  its width, the symbols and objects panels shown on demand.
+- **Formatted parts of a text** in a drawing (DRAW-020): the size, colour,
+  bold, italic and underline of the part selected while typing (Ctrl+B,
+  Ctrl+I, Ctrl+U too), or of the whole text; kept in SVG and in PDF (Helvetica
+  Bold and Oblique).
+- **Download PDF** in the drawing editor (DRAW-021): a schematic or drawing
+  as a PDF page of its size, drawn with vectors, its text searchable; Ω, µ and
+  other signs from the Symbol font.
 
 ### Changed
 
 - The text tool of the drawing editor types the text in place, on several
   lines, with a choice of size, instead of asking for it in a separate window
   (DRAW-001).
+
+### Fixed
+
+- The "&" label of the IEC AND and NAND gates was written unescaped, making
+  the SVG of a drawing holding one invalid XML.
 
 - The kind of an interaction with a contact is free: besides meeting, call,
   e-mail and message, type your own (`🍽 Lunch`), an emoji first if you

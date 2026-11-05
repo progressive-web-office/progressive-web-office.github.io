@@ -37,7 +37,7 @@ const L = (...pts: number[]): string => {
 };
 const C = (x: number, y: number, r: number, fill = false): string => `<circle cx="${x}" cy="${y}" r="${r}"${fill ? ' fill="currentColor"' : ''}/>`;
 const T = (x: number, y: number, text: string, size = 10): string =>
-  `<text x="${x}" y="${y}" font-size="${size}" text-anchor="middle" dominant-baseline="central" fill="currentColor" stroke="none">${text}</text>`;
+  `<text x="${x}" y="${y}" font-size="${size}" text-anchor="middle" dominant-baseline="central" fill="currentColor" stroke="none">${text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>`;
 const arrowHead = (x: number, y: number, angle: number, size = 5): string => {
   const a = (angle * Math.PI) / 180;
   const p = (da: number): string => `${(x - size * Math.cos(a + da)).toFixed(1)} ${(y - size * Math.sin(a + da)).toFixed(1)}`;
