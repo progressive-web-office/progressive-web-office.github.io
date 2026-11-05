@@ -11,14 +11,20 @@ import {
   PDFName,
   PDFOptionList,
   PDFRadioGroup,
+  PDFRef,
   PDFString,
   PDFTextField,
   rgb,
   StandardFonts,
   TextAlignment,
+  drawObject,
+  popGraphicsState,
+  pushGraphicsState,
   type PDFField,
 } from '@pdfme/pdf-lib';
-import { writeAnnotations, type PdfNote } from './annotations';
+import { pdfDate, writeAnnotations, type PdfNote } from './annotations';
+import type { Drawing } from '../draw/model';
+import { apply, drawingOps, drawingText } from './vector';
 import { formatActions, parseFormatScripts, type FieldFormat } from './field-format';
 
 /**
@@ -87,7 +93,27 @@ export interface PdfInfo {
   /** Set when the document cannot be modified (encrypted, XFA). */
   readOnlyReason?: string;
   readOnlyCode?: 'encrypted' | 'xfa' | 'unreadable';
+  /** PDF-021: the drawings made here, taken out of the file (see `bytes`). */
+  drawings?: { page: number; drawing: Drawing }[];
+  /** PDF-021: the file without those drawings, when there were some. */
+  bytes?: Uint8Array;
 }
+
+/** PDF-021: a drawing on a page, in the page's space as shown (points, y downwards). */
+export interface PdfDrawing {
+  page: number;
+  drawing: Drawing;
+  /** From the drawing's space to the page's (PDF user space). */
+  matrix: [number, number, number, number, number, number];
+  /** A picture of the drawing, used when it cannot be written as vectors. */
+  png?: Uint8Array;
+  author?: string;
+  /** ISO 8601 date. */
+  date?: string;
+}
+
+/** The key of the annotations holding a drawing made here, editable again. */
+const DRAWING_KEY = 'PWO_Drawing';
 
 export type Stamp =
   | { kind: 'image'; page: number; x: number; y: number; width: number; height: number; png: Uint8Array }
@@ -125,6 +151,8 @@ export interface PdfEdits {
   flatten: boolean;
   /** Highlights and notes (PDF-018). */
   notes?: PdfNote[];
+  /** PDF-021: drawings and text boxes on the pages. */
+  drawings?: PdfDrawing[];
 }
 
 async function load(bytes: Uint8Array): Promise<{ doc: PDFDocument; encrypted: boolean }> {
@@ -138,7 +166,7 @@ async function load(bytes: Uint8Array): Promise<{ doc: PDFDocument; encrypted: b
   }
 }
 
-export async function inspectPdf(bytes: Uint8Array): Promise<PdfInfo> {
+export async function inspectPdf(bytes: Uint8Array, options: { drawings?: boolean } = {}): Promise<PdfInfo> {
   const { doc, encrypted } = await load(bytes);
   const info: PdfInfo = { pageCount: doc.getPageCount(), fields: [] };
   if (encrypted) {
@@ -189,9 +217,98 @@ export async function inspectPdf(bytes: Uint8Array): Promise<PdfInfo> {
       info.fields.push({ ...base, type: 'other', value: '' });
     }
   }
+  if (options.drawings) {
+    const drawings = takeDrawings(doc);
+    if (drawings.length) {
+      info.drawings = drawings;
+      info.bytes = await doc.save();
+    }
+  }
   return info;
 }
 
+/** PDF-021: the drawings made here, removed from their pages to be edited again. */
+function takeDrawings(doc: PDFDocument): { page: number; drawing: Drawing }[] {
+  const found: { page: number; drawing: Drawing }[] = [];
+  doc.getPages().forEach((page, index) => {
+    const annots = page.node.Annots();
+    if (!annots) return;
+    for (let i = annots.size() - 1; i >= 0; i--) {
+      const annot = annots.lookup(i);
+      if (!(annot instanceof PDFDict)) continue;
+      const json = textOf(annot.lookup(PDFName.of(DRAWING_KEY)));
+      if (!json) continue;
+      try {
+        const drawing = JSON.parse(json) as Drawing;
+        if (!Array.isArray(drawing.shapes)) continue;
+        found.unshift({ page: index, drawing });
+        annots.remove(i);
+      } catch {
+        // Not ours after all: left in the file.
+      }
+    }
+  });
+  return found;
+}
+
+/** PDF-021: the drawings written as Form XObjects: annotations, or part of the pages when flattened. */
+async function writeDrawings(doc: PDFDocument, drawings: PdfDrawing[], flatten: boolean): Promise<void> {
+  const ctx = doc.context;
+  const pages = doc.getPages();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const vectorFont = {
+    encode: (text: string): string | null => {
+      try {
+        return font.encodeText(text).toString();
+      } catch {
+        return null;
+      }
+    },
+    width: (text: string, size: number): number => font.widthOfTextAtSize(text, size),
+  };
+  for (const [i, dr] of drawings.entries()) {
+    const page = pages[dr.page];
+    if (!page || !dr.drawing.shapes.length) continue;
+    const { width: w, height: h } = dr.drawing;
+    const vector = dr.png ? null : drawingOps(dr.drawing, vectorFont);
+    let ops: string;
+    const resources: { Font?: Record<string, PDFRef>; ExtGState?: Record<string, { Type: string; ca: number; CA: number }>; XObject?: Record<string, PDFRef> } = {};
+    if (vector) {
+      ops = vector.ops;
+      if (vector.text) resources.Font = { F1: font.ref };
+      const states = Object.entries(vector.states);
+      if (states.length) resources.ExtGState = Object.fromEntries(states.map(([name, a]) => [name, { Type: 'ExtGState', ca: a, CA: a }]));
+    } else if (dr.png) {
+      const image = await doc.embedPng(dr.png);
+      ops = `q ${w} 0 0 ${-h} 0 ${h} cm /Im1 Do Q`;
+      resources.XObject = { Im1: image.ref };
+    } else continue;
+    const xobject = ctx.register(ctx.stream(ops, { Type: 'XObject', Subtype: 'Form', BBox: [0, 0, w, h], Matrix: dr.matrix, Resources: resources }));
+    if (flatten) {
+      const name = page.node.newXObject('PwoDrawing', xobject);
+      page.pushOperators(pushGraphicsState(), drawObject(name), popGraphicsState());
+      continue;
+    }
+    const corners = [apply(dr.matrix, 0, 0), apply(dr.matrix, w, 0), apply(dr.matrix, 0, h), apply(dr.matrix, w, h)];
+    const rect = [Math.min(...corners.map((c) => c[0])), Math.min(...corners.map((c) => c[1])), Math.max(...corners.map((c) => c[0])), Math.max(...corners.map((c) => c[1]))];
+    const date = PDFString.of(pdfDate(dr.date));
+    const annot = ctx.obj({
+      Type: 'Annot',
+      Subtype: 'Stamp',
+      F: 4, // printed
+      Rect: rect,
+      Name: 'Draft',
+      Contents: PDFHexString.fromText(drawingText(dr.drawing) || dr.drawing.alt || ''),
+      T: PDFHexString.fromText(dr.author ?? ''),
+      M: date,
+      CreationDate: date,
+      NM: PDFString.of(`pwo-drawing-${dr.page}-${i}-${Date.now().toString(36)}`),
+      AP: { N: xobject },
+      [DRAWING_KEY]: PDFHexString.fromText(JSON.stringify(dr.drawing)),
+    });
+    page.node.addAnnot(ctx.register(annot));
+  }
+}
 export async function applyEdits(bytes: Uint8Array, edits: PdfEdits): Promise<Uint8Array> {
   const { doc, encrypted } = await load(bytes);
   if (encrypted) throw new Error('Encrypted PDF files cannot be modified.');
@@ -272,6 +389,7 @@ export async function applyEdits(bytes: Uint8Array, edits: PdfEdits): Promise<Ui
     }
   }
   if (edits.notes?.length) writeAnnotations(doc, edits.notes);
+  if (edits.drawings?.length) await writeDrawings(doc, edits.drawings, edits.flatten);
   if (edits.flatten) form.flatten();
   return doc.save();
 }

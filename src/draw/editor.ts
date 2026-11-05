@@ -7,13 +7,28 @@ import { button, h } from '../app/dom';
 import { t } from '../i18n';
 import {
   bbox, connectionPoints, duplicate, emptyDrawing, formatValue, mirror, moveShapes, newId, placeSymbol, reconnect, remove, rotate, route, shapeById, snap,
-  type Drawing, type End, type LineShape, type Pt, type Shape,
+  type Drawing, type End, type LineShape, type Pt, type Shape, type TextShape,
 } from './model';
 import { exportPng } from './raster';
 import { drawingBody, toSvg } from './svg';
 import { searchSymbols, symbolDef, type SymbolCategory, type SymbolDef } from './symbols';
 
-type Tool = 'select' | 'rect' | 'ellipse' | 'line' | 'arrow' | 'free' | 'text' | 'wire';
+export type Tool = 'select' | 'rect' | 'ellipse' | 'line' | 'arrow' | 'free' | 'text' | 'wire';
+
+/** PDF-021: how the editor opens — over a picture of a PDF page, for example. */
+export interface DrawOptions {
+  /** A picture under the drawing, the size of the drawing, not part of it. */
+  background?: string;
+  /** The title of the dialog. */
+  title?: string;
+  /** The drawing's size cannot be changed (a page). */
+  fixedSize?: boolean;
+  /** The tool chosen when the editor opens. */
+  tool?: Tool;
+}
+
+/** Sizes of text offered (DRAW-001, PDF-021). */
+const TEXT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64];
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const svgEl = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number> = {}): SVGElementTagNameMap[K] => {
@@ -54,12 +69,14 @@ export function symbolPreview(def: SymbolDef): string {
   return `<svg xmlns="${SVG_NS}" viewBox="${x0 - pad} ${y0 - pad} ${x1 - x0 + 2 * pad} ${y1 - y0 + 2 * pad}" width="44" height="32" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">${def.body}</g></svg>`;
 }
 
-export function editDrawing(host: HTMLElement, initial?: Drawing): Promise<Drawing | null> {
+export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawOptions = {}): Promise<Drawing | null> {
   return new Promise((resolve) => {
     let d: Drawing = initial ? structuredClone(initial) : emptyDrawing();
-    let tool: Tool = 'select';
+    let tool: Tool = options.tool ?? 'select';
     let selected: string[] = [];
     let zoom = 1;
+    /** The text typed in place (PDF-021). */
+    let editing: { id: string; created: boolean; before: string } | undefined;
     const undo: string[] = [];
     const redo: string[] = [];
     const snapshot = (): void => {
@@ -67,7 +84,7 @@ export function editDrawing(host: HTMLElement, initial?: Drawing): Promise<Drawi
       if (undo.length > 200) undo.shift();
       redo.length = 0;
     };
-    let style = { stroke: '#000000', fill: 'none', width: 1.5, dash: '' as '' | 'dash' | 'dot' };
+    let style = { stroke: '#000000', fill: 'none', width: 1.5, dash: '' as '' | 'dash' | 'dot', size: 16 };
 
     // --- stage ---------------------------------------------------------------
     const svg = svgEl('svg', { class: 'draw-stage', tabindex: 0, role: 'application', 'aria-roledescription': t('draw.canvas'), 'aria-label': t('draw.canvas') });
@@ -77,8 +94,11 @@ export function editDrawing(host: HTMLElement, initial?: Drawing): Promise<Drawi
     const grid = svgEl('rect', { x: 0, y: 0, fill: 'url(#draw-grid)', 'pointer-events': 'none' });
     const content = svgEl('g', { class: 'draw-content' });
     const overlay = svgEl('g', { class: 'draw-overlay' });
-    svg.append(defs, paper, grid, content, overlay);
+    // PDF-021: the page under the drawing.
+    const background = options.background ? svgEl('image', { href: options.background, x: 0, y: 0, preserveAspectRatio: 'none', 'pointer-events': 'none', class: 'draw-background' }) : undefined;
+    svg.append(defs, paper, ...(background ? [background] : []), grid, content, overlay);
     const stage = h('div', { class: 'draw-scroll' }, svg);
+    // The text editor (PDF-021) lies over the drawing, in the scrolled area.
     const status = h('p', { class: 'draw-status', role: 'status' });
 
     // --- properties ---------------------------------------------------------
@@ -90,8 +110,10 @@ export function editDrawing(host: HTMLElement, initial?: Drawing): Promise<Drawi
     const refInput = h('input', { type: 'text', size: 5, 'aria-label': t('draw.ref') });
     const valueInput = h('input', { type: 'text', size: 10, 'aria-label': t('draw.value') });
     const textInput = h('input', { type: 'text', size: 18, 'aria-label': t('draw.label') });
+    const textSize = h('select', { 'aria-label': t('draw.textSize') }, ...TEXT_SIZES.map((v) => h('option', { value: String(v), selected: v === style.size }, String(v))));
+    const textSizeLabel = h('label', {}, `${t('draw.textSize')} `, textSize);
     const symbolProps = h('span', { class: 'draw-props-group', hidden: true }, h('label', {}, `${t('draw.ref')} `, refInput), h('label', {}, `${t('draw.value')} `, valueInput));
-    const textProps = h('span', { class: 'draw-props-group', hidden: true }, h('label', {}, `${t('draw.label')} `, textInput));
+    const textProps = h('span', { class: 'draw-props-group', hidden: true }, h('label', {}, `${t('draw.label')} `, textInput), textSizeLabel);
     // DRAW-017: the arrows of a line and its routing in right angles.
     const arrowStart = h('input', { type: 'checkbox' });
     const arrowEnd = h('input', { type: 'checkbox' });
@@ -174,6 +196,14 @@ export function editDrawing(host: HTMLElement, initial?: Drawing): Promise<Drawi
       valueInput.value = s.value ?? '';
       render();
     });
+    textSize.addEventListener('change', () => {
+      style.size = Number(textSize.value);
+      const texts = sel().filter((x): x is TextShape => x.kind === 'text');
+      if (!texts.length) return;
+      snapshot();
+      for (const x of texts) x.size = style.size;
+      render();
+    });
     textInput.addEventListener('change', () => {
       const s = sel()[0];
       if (!s) return;
@@ -197,13 +227,15 @@ export function editDrawing(host: HTMLElement, initial?: Drawing): Promise<Drawi
       svg.setAttribute('viewBox', `0 0 ${d.width} ${d.height}`);
       svg.setAttribute('width', String(d.width * zoom));
       svg.setAttribute('height', String(d.height * zoom));
-      for (const r of [paper, grid]) {
+      for (const r of [paper, grid, ...(background ? [background] : [])]) {
         r.setAttribute('width', String(d.width));
         r.setAttribute('height', String(d.height));
       }
       grid.toggleAttribute('hidden', !d.showGrid);
       grid.style.display = d.showGrid ? '' : 'none';
       content.innerHTML = drawingBody(d);
+      // The text being typed is shown by its editor alone.
+      if (editing) content.querySelector<SVGElement>(`[data-id="${CSS.escape(editing.id)}"]`)?.setAttribute('visibility', 'hidden');
       overlay.replaceChildren();
       for (const s of sel()) {
         const b = bbox(s) ?? domBox(s.id);
@@ -228,7 +260,9 @@ export function editDrawing(host: HTMLElement, initial?: Drawing): Promise<Drawi
         arrowEnd.checked = one.end === 'arrow';
         orthoInput.checked = !!one.ortho;
       }
-      textProps.hidden = one?.kind !== 'text' && one?.kind !== 'line';
+      textProps.hidden = one?.kind !== 'text' && one?.kind !== 'line' && tool !== 'text';
+      textSizeLabel.hidden = one ? one.kind !== 'text' : tool !== 'text';
+      if (one?.kind === 'text') textSize.value = String(one.size ?? 16);
       if (one?.kind === 'symbol') {
         if (document.activeElement !== refInput) refInput.value = one.ref ?? '';
         if (document.activeElement !== valueInput) valueInput.value = one.value ?? '';
@@ -309,6 +343,8 @@ export function editDrawing(host: HTMLElement, initial?: Drawing): Promise<Drawi
       if (e.button !== 0) return;
       if (isDouble(e)) {
         drag = undefined;
+        // The text typed in place keeps the focus (PDF-021).
+        e.preventDefault();
         return onDouble(e);
       }
       svg.focus();
@@ -351,12 +387,20 @@ export function editDrawing(host: HTMLElement, initial?: Drawing): Promise<Drawi
       if (tool === 'rect' || tool === 'ellipse') shape = { id, kind: tool, x: at[0], y: at[1], w: 0, h: 0, ...st, fill: style.fill };
       else if (tool === 'free') shape = { id, kind: 'free', points: [p], ...st, width: Math.max(2, style.width) };
       else if (tool === 'text') {
-        const text = window.prompt(t('draw.textPrompt'))?.trim();
-        if (!text) return void undo.pop();
-        d.shapes.push({ id, kind: 'text', x: at[0], y: at[1], text, size: 16, fill: style.stroke });
-        tool = 'select';
-        syncTools();
-        return select([id]);
+        // PDF-021: a text typed where it goes, on several lines; a press on a text edits it.
+        const hit = target.closest('[data-id]')?.getAttribute('data-id') ?? shapeAt(p);
+        const old = hit ? shapeById(d, hit) : undefined;
+        // The focus stays in the text typed in place.
+        e.preventDefault();
+        if (old?.kind === 'text') {
+          undo.pop();
+          return openText(old, false);
+        }
+        const size = style.size;
+        // The press is the top left of the first line.
+        const created: TextShape = { id, kind: 'text', x: at[0], y: snapPt([p[0], p[1] + size * 0.8], e.altKey || !d.grid)[1], text: '', size, fill: style.stroke };
+        d.shapes.push(created);
+        return openText(created, true);
       } else {
         const start = attachAt(p);
         const a = start?.at ?? at;
@@ -517,8 +561,75 @@ export function editDrawing(host: HTMLElement, initial?: Drawing): Promise<Drawi
       if (!s) return;
       select([s.id]);
       if (s.kind === 'symbol') valueInput.focus();
-      else if (s.kind === 'text' || s.kind === 'line') textInput.focus();
+      else if (s.kind === 'text') openText(s, false);
+      else if (s.kind === 'line') textInput.focus();
     };
+
+    // --- text typed in place (PDF-021) ---------------------------------------------
+    const textEditor = h('textarea', { class: 'draw-text-editor', 'aria-label': t('draw.label'), rows: '1', spellcheck: 'true', hidden: true });
+    const fitText = (): void => {
+      const lines = textEditor.value.split('\n');
+      textEditor.rows = Math.max(1, lines.length);
+      textEditor.style.width = `${Math.max(3, ...lines.map((l) => l.length + 1)) * 0.6}em`;
+    };
+    const placeText = (s: TextShape): void => {
+      const box = svg.getBoundingClientRect();
+      const area = stage.getBoundingClientRect();
+      const k = box.width && d.width ? box.width / d.width : zoom;
+      const size = (s.size ?? 16) * k;
+      Object.assign(textEditor.style, {
+        left: `${box.left - area.left + stage.scrollLeft + s.x * k - 3}px`,
+        top: `${box.top - area.top + stage.scrollTop + (s.y - (s.size ?? 16) * 0.95) * k - 3}px`,
+        fontSize: `${size}px`,
+        color: s.fill ?? s.stroke ?? '#000000',
+      });
+    };
+    function openText(s: TextShape, created: boolean): void {
+      if (editing) closeText();
+      editing = { id: s.id, created, before: s.text };
+      selected = [s.id];
+      textEditor.value = s.text;
+      textEditor.hidden = false;
+      placeText(s);
+      fitText();
+      render();
+      textEditor.focus();
+      // Typing goes on at the end.
+      textEditor.setSelectionRange(s.text.length, s.text.length);
+    }
+    function closeText(): void {
+      const ed = editing;
+      if (!ed) return;
+      editing = undefined;
+      textEditor.hidden = true;
+      const s = shapeById(d, ed.id);
+      const text = textEditor.value.replace(/\s+$/, '');
+      if (s?.kind === 'text') {
+        if (!text.trim()) {
+          remove(d, [s.id]);
+          selected = [];
+          // Nothing typed: nothing to undo either.
+          if (ed.created) undo.pop();
+        } else if (text !== ed.before) {
+          if (!ed.created) snapshot();
+          s.text = text;
+        }
+      }
+      render();
+      svg.focus();
+    }
+    textEditor.addEventListener('input', fitText);
+    textEditor.addEventListener('blur', () => closeText());
+    textEditor.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      // Enter makes a new line; Escape, or Ctrl+Enter, is done.
+      if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
+        e.preventDefault();
+        closeText();
+      }
+    });
+    textEditor.addEventListener('pointerdown', (e) => e.stopPropagation());
+    stage.append(textEditor);
 
     // --- commands ------------------------------------------------------------------
     const restore = (from: string[], to: string[]): void => {
@@ -762,12 +873,13 @@ export function editDrawing(host: HTMLElement, initial?: Drawing): Promise<Drawi
 
     const dialog = h('dialog', { class: 'dialog draw-dialog', 'aria-labelledby': 'draw-title' });
     const finish = (value: Drawing | null): void => {
+      if (editing) closeText();
       dialog.close();
       dialog.remove();
       resolve(value);
     };
     dialog.append(
-      h('h2', { id: 'draw-title' }, t('draw.title')),
+      h('h2', { id: 'draw-title' }, options.title ?? t('draw.title')),
       h(
         'div',
         { class: 'draw-toolbar', role: 'toolbar', 'aria-label': t('draw.tools') },
@@ -817,9 +929,9 @@ export function editDrawing(host: HTMLElement, initial?: Drawing): Promise<Drawi
         'div',
         { class: 'draw-footer' },
         h('label', {}, `${t('draw.alt')} `, alt),
-        h('label', {}, `${t('draw.widthPx')} `, widthSize),
-        h('label', {}, `${t('draw.heightPx')} `, heightSize),
-        button(t('draw.fit'), fit, { title: t('draw.fitTitle') }),
+        ...(options.fixedSize
+          ? []
+          : [h('label', {}, `${t('draw.widthPx')} `, widthSize), h('label', {}, `${t('draw.heightPx')} `, heightSize), button(t('draw.fit'), fit, { title: t('draw.fitTitle') })]),
         button(t('draw.exportSvg'), exportSvg),
         button(t('draw.exportPng'), () => void exportAsPng()),
         netlistBtn,

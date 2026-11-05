@@ -62,6 +62,29 @@ writes them as standard PDF annotations (highlight and note), which other
 PDF readers show with their author and comment. The annotations already in a
 PDF, from other readers too, are listed in the panel with their comments.
 
+## Drawing and text boxes
+
+**✏ Draw** opens the [drawing editor](./drawing) over the current page, the
+page shown underneath:
+
+- The **text** tool is chosen: click where the text goes and type it.
+  <kbd>Enter</kbd> starts a new line; <kbd>Escape</kbd> (or
+  <kbd>Ctrl</kbd>+<kbd>Enter</kbd>, or a click elsewhere) is done. Its
+  **Size** and colour (the line colour) are in the bar above the drawing. A
+  double click on a text edits it again.
+- **Arrows**, lines, rectangles, ellipses and freehand strokes point at,
+  frame or underline what matters. A white rectangle without border hides
+  what is under it.
+- **Done** puts the drawing on the page; **✏** at the top right of the page
+  opens it again.
+
+**Save** writes the drawing as an annotation drawn with vectors, its text
+kept as text: every PDF reader shows it, prints it and lets you move or
+delete it. Opened again here, the drawing can be edited. **Save as… →
+Flattened PDF** makes it part of the page. Text in a script the standard PDF
+font cannot write (Chinese, for example) is saved as a picture of the
+drawing.
+
 ## Signing
 
 1. Click **✍ Sign**.
@@ -91,4 +114,5 @@ document's integrity.
 - Encrypted PDFs and XFA forms are displayed **read-only**, with an
   explanation.
 - PDF JavaScript is never executed.
-- General content editing and annotations are not supported.
+- The text already in the pages cannot be edited: cover it with a white
+  rectangle and type the new text over it (see *Drawing and text boxes*).

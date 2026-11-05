@@ -10,7 +10,10 @@ import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 import type { PDFDocumentProxy, PDFPageProxy, PageViewport } from 'pdfjs-dist';
 import { button, h } from '../app/dom';
 import type { EditorView, SaveVariant, ViewContext } from '../app/views';
-import { applyEdits, NEW_FIELD_KINDS, type FieldSettings, type NewField, type NewFieldKind, type PdfEdits, inspectPdf, type FormField, type PdfInfo, type Stamp } from './forms';
+import { applyEdits, NEW_FIELD_KINDS, type FieldSettings, type NewField, type NewFieldKind, type PdfDrawing, type PdfEdits, inspectPdf, type FormField, type PdfInfo, type Stamp } from './forms';
+import type { Drawing } from '../draw/model';
+import { drawingBody } from '../draw/svg';
+import { drawingOps, invert, WIN_ANSI } from './vector';
 import { checkValue, inputPattern } from './field-format';
 import { captureSignature } from './signature-pad';
 import { fitScale, PAGES_PER_ROW, type PdfZoom } from './fit';
@@ -41,20 +44,30 @@ interface PageShell {
 export async function createPdfViewer(bytes: Uint8Array, ctx: ViewContext): Promise<PdfViewer> {
   // PDF-004: PDF JavaScript is never run — pdf.js only executes it through its
   // optional scripting sandbox, which is not loaded (and quickjs is not shipped).
-  const task = pdfjs.getDocument({
-    data: bytes.slice(),
-    enableXfa: false,
-    cMapUrl: assetUrl('cmaps'),
-    cMapPacked: true,
-    standardFontDataUrl: assetUrl('standard_fonts'),
-    wasmUrl: assetUrl('wasm'),
-    iccUrl: assetUrl('iccs'),
-  });
-  const [doc, info] = await Promise.all([
+  const open = (data: Uint8Array) =>
+    pdfjs.getDocument({
+      data: data.slice(),
+      enableXfa: false,
+      cMapUrl: assetUrl('cmaps'),
+      cMapPacked: true,
+      standardFontDataUrl: assetUrl('standard_fonts'),
+      wasmUrl: assetUrl('wasm'),
+      iccUrl: assetUrl('iccs'),
+    });
+  let task = open(bytes);
+  let [doc, info] = await Promise.all([
     task.promise,
-    inspectPdf(bytes).catch((): PdfInfo => ({ pageCount: 0, fields: [], readOnlyReason: 'unreadable', readOnlyCode: 'unreadable' })),
+    inspectPdf(bytes, { drawings: true }).catch((): PdfInfo => ({ pageCount: 0, fields: [], readOnlyReason: 'unreadable', readOnlyCode: 'unreadable' })),
   ]);
-  return new PdfViewer(bytes, doc, info, ctx, () => void task.destroy());
+  // PDF-021: drawings made here are shown and saved by the viewer, editable again: the file without them is rendered.
+  if (info.bytes) {
+    void task.destroy();
+    bytes = info.bytes;
+    task = open(bytes);
+    doc = await task.promise;
+  }
+  const shown = task;
+  return new PdfViewer(bytes, doc, info, ctx, () => void shown.destroy());
 }
 
 export class PdfViewer implements EditorView {
@@ -95,6 +108,8 @@ export class PdfViewer implements EditorView {
   private readonly designBar = h('div', { class: 'toolbar pdf-design-bar', role: 'toolbar', 'aria-label': t('form.design'), hidden: true });
   private readonly kindButtons = new Map<NewFieldKind, HTMLButtonElement>();
   private stamps: Stamp[] = [];
+  /** PDF-021: the drawing of each page that has one. */
+  private drawings: { page: number; drawing: Drawing }[] = [];
   private resizeObserver: ResizeObserver | undefined;
   /** PDF-017: text search. */
   private readonly findInput = h('input', { type: 'search', class: 'pdf-find-input', 'aria-label': t('pdf.findLabel'), placeholder: t('pdf.findLabel') });
@@ -119,6 +134,7 @@ export class PdfViewer implements EditorView {
     private readonly release: () => void,
   ) {
     this.scroller.append(this.pagesEl);
+    this.drawings = info.drawings ?? [];
     const reason = { encrypted: t('pdf.encrypted'), xfa: t('pdf.xfa'), unreadable: t('pdf.formError') };
     const notice = info.readOnlyReason ? h('div', { class: 'pdf-notice', role: 'note' }, info.readOnlyCode ? reason[info.readOnlyCode] : info.readOnlyReason) : null;
     this.findBar.append(
@@ -148,6 +164,8 @@ export class PdfViewer implements EditorView {
     this.pagesEl.addEventListener('pointerdown', (e) => this.startDrawing(e));
     void this.loadExistingNotes();
     this.element.addEventListener('keydown', (e) => {
+      // The keys of a window over the pages (the drawing editor, PDF-021) are its own.
+      if ((e.target as Element | null)?.closest?.('dialog')) return;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         this.openFind();
@@ -224,8 +242,24 @@ export class PdfViewer implements EditorView {
   /** Save with the form fields still editable, for later changes (PDF-009). */
   async save(): Promise<Uint8Array> {
     const designed = this.newFields.length || this.removedFields.size || Object.keys(this.renamedFields).length || Object.keys(this.fieldSettings).length;
-    if (!Object.keys(this.values).length && !this.stamps.length && !this.notes.length && !designed) return this.bytes;
-    return applyEdits(this.bytes, { values: this.values, stamps: this.stamps, flatten: false, notes: this.notes, ...this.design() });
+    if (!Object.keys(this.values).length && !this.stamps.length && !this.notes.length && !designed && !this.drawings.length) return this.bytes;
+    return applyEdits(this.bytes, { values: this.values, stamps: this.stamps, flatten: false, notes: this.notes, ...this.design(), drawings: await this.pdfDrawings() });
+  }
+
+  /** PDF-021: the drawings placed on their pages, a picture of those that cannot be vectors. */
+  private async pdfDrawings(): Promise<PdfDrawing[]> {
+    const out: PdfDrawing[] = [];
+    for (const { page, drawing } of this.drawings) {
+      if (!drawing.shapes.length) continue;
+      const viewport = (await this.doc.getPage(page + 1)).getViewport({ scale: 1 });
+      const item: PdfDrawing = { page, drawing, matrix: invert(viewport.transform as PdfDrawing['matrix']) };
+      if (!drawingOps(drawing, WIN_ANSI)) {
+        const { exportPng } = await import('../draw/raster');
+        item.png = new Uint8Array(await (await exportPng(drawing, 3, null)).arrayBuffer());
+      }
+      out.push(item);
+    }
+    return out;
   }
 
   /** FORM-001: the design to apply on saving. */
@@ -235,14 +269,14 @@ export class PdfViewer implements EditorView {
 
   /** "Flattened PDF": a copy whose filled fields become part of the page (PDF-010). */
   saveVariants(): SaveVariant[] {
-    if (this.info.readOnlyReason || !this.info.fields.length) return [];
+    if (this.info.readOnlyReason || (!this.info.fields.length && !this.drawings.length)) return [];
     return [
       {
         id: 'pdf-flattened',
-        label: t('pdf.saveFlattened'),
+        label: t(this.info.fields.length ? 'pdf.saveFlattened' : 'pdf.saveFlattenedDrawings'),
         format: 'pdf',
         suffix: t('pdf.flattenedSuffix'),
-        save: () => applyEdits(this.bytes, { values: this.values, stamps: this.stamps, flatten: true, notes: this.notes, ...this.design() }),
+        save: async () => applyEdits(this.bytes, { values: this.values, stamps: this.stamps, flatten: true, notes: this.notes, ...this.design(), drawings: await this.pdfDrawings() }),
       },
     ];
   }
@@ -723,6 +757,7 @@ export class PdfViewer implements EditorView {
             h('span', { class: 'sep' }),
             button(t('pdf.sign'), () => void this.addSignature(), { text: t('pdf.signText'), title: t('pdf.signTitle'), className: 'pdf-form-tool' }),
             button(t('pdf.addText'), () => this.addText(), { text: t('pdf.addTextText'), title: t('pdf.addTextTitle'), className: 'pdf-form-tool' }),
+            button(t('pdf.draw'), () => void this.drawOnPage(), { text: t('pdf.drawText'), title: t('pdf.drawTitle'), className: 'pdf-form-tool' }),
             h('span', { class: 'sep pdf-form-tool' }),
             button(t('pdf.highlight'), () => this.highlightSelection(), { text: `🖍 ${t('pdf.highlight')}`, title: `${t('pdf.highlightTitle')} (c)` }),
             button(t('pdf.note'), () => this.startNote(), { text: `💬 ${t('pdf.note')}`, title: t('pdf.noteTitle') }),
@@ -942,7 +977,9 @@ export class PdfViewer implements EditorView {
     const stampLayer = h('div', { class: 'pdf-stamp-layer' });
     const noteLayer = h('div', { class: 'pdf-note-layer' });
     const designLayer = h('div', { class: 'pdf-design-layer' });
-    page.el.replaceChildren(canvas, noteLayer, textLayer, formLayer, stampLayer, designLayer);
+    const drawingLayer = h('div', { class: 'pdf-drawing-layer' });
+    page.el.replaceChildren(canvas, drawingLayer, noteLayer, textLayer, formLayer, stampLayer, designLayer);
+    this.renderDrawing(page);
     this.renderNoteLayer(page);
     this.renderDesignLayer(page);
     const context = canvas.getContext('2d');
@@ -1185,6 +1222,60 @@ export class PdfViewer implements EditorView {
     this.stamps.push({ kind: 'text', page: page.index, ...pos, width, height, text, size });
     this.ctx.changed();
     this.refreshStamps(page);
+  }
+
+  // --- drawings (PDF-021) ----------------------------------------------------------------
+
+  /** The drawing of a page over it, with a button to edit it again. */
+  private renderDrawing(page: PageShell): void {
+    const layer = page.el.querySelector<HTMLElement>('.pdf-drawing-layer');
+    if (!layer) return;
+    const drawing = this.drawings.find((x) => x.page === page.index)?.drawing;
+    layer.replaceChildren();
+    if (!drawing?.shapes.length) return;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', `0 0 ${drawing.width} ${drawing.height}`);
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.setAttribute('font-family', 'sans-serif');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.innerHTML = drawingBody(drawing);
+    const label = t('pdf.drawingOf', { n: page.index + 1 });
+    layer.append(svg, ...(this.info.readOnlyReason ? [] : [button(label, () => void this.drawOnPage(page.index), { text: '✏', title: label, className: 'pdf-drawing-edit' })]));
+  }
+
+  /** PDF-021: the drawing editor over a picture of the page, for text boxes, arrows and shapes. */
+  private async drawOnPage(index = this.current - 1): Promise<void> {
+    const proxy = await this.doc.getPage(index + 1);
+    const viewport = proxy.getViewport({ scale: 1 });
+    // The page as the drawing's background, sharp enough when zoomed in.
+    const ratio = 2;
+    const canvas = h('canvas');
+    canvas.width = Math.ceil(viewport.width * ratio);
+    canvas.height = Math.ceil(viewport.height * ratio);
+    const context = canvas.getContext('2d');
+    let url: string | undefined;
+    if (context) {
+      await proxy.render({ canvas, canvasContext: context, viewport: proxy.getViewport({ scale: ratio }) }).promise;
+      // toDataURL: toBlob can wait seconds in some browsers.
+      url = canvas.toDataURL('image/png');
+    }
+    const existing = this.drawings.find((x) => x.page === index);
+    const initial: Drawing = existing?.drawing ?? { width: viewport.width, height: viewport.height, grid: 0, showGrid: false, shapes: [] };
+    const { editDrawing } = await import('../draw/editor');
+    const result = await editDrawing(this.element, initial, {
+      ...(url ? { background: url } : {}),
+      title: t('pdf.drawDialog', { n: index + 1 }),
+      fixedSize: true,
+      tool: existing?.drawing.shapes.length ? 'select' : 'text',
+    });
+    if (!result) return;
+    // The page's size, whatever was done.
+    Object.assign(result, { width: viewport.width, height: viewport.height });
+    this.drawings = this.drawings.filter((x) => x.page !== index);
+    if (result.shapes.length) this.drawings.push({ page: index, drawing: result });
+    this.ctx.changed();
+    const page = this.pages[index];
+    if (page) this.renderDrawing(page);
   }
 
   private refreshStamps(page: PageShell): void {
