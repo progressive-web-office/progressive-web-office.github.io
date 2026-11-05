@@ -2602,6 +2602,7 @@ export class DocumentEditor implements EditorView {
       toolGroup(t('group.insert'), '＋', [
         act(t('doc.insertLink'), '🔗', () => this.insertLink(), t('doc.insertLinkTitle')),
         act(t('common.insertImage'), '🖼', () => void this.pickImage()),
+        act(t('pdf.sign'), '✍', () => void this.sign(), t('mark.signTitle')),
         act(t('draw.insert'), '✏️', () => void this.editDrawing(), t('draw.insertTitle')),
         act(t('paint.new'), '🖌', () => void this.paint(), t('paint.newTitle')),
         act(t('doc.insertTable'), '▦', () => this.command(insertTable()), t('doc.insertTableTitle')),
@@ -2772,6 +2773,18 @@ export class DocumentEditor implements EditorView {
       input.click();
     });
     if (file) await this.insertImageFile(file);
+  }
+
+  /** MARK-001: the signature pad of the PDF viewer; the signature inserted as a picture at the cursor. */
+  private async sign(): Promise<void> {
+    if (this.readOnly) return;
+    const { askSignature, fitSize } = await import('../app/mark');
+    const sig = await askSignature(this.element);
+    if (!sig) return this.refocus();
+    const key = addResource(this.doc, sig.png, 'image/png', 'signature.png');
+    const size = fitSize(sig.width, sig.height, 240, 120);
+    this.command(insertInline(schema.nodes.image!.create({ image: key, alt: t('pdf.signature'), width: size.w, height: size.h })));
+    this.refocus();
   }
 
   private async insertImageFile(file: File, pos?: number, describe = true): Promise<void> {

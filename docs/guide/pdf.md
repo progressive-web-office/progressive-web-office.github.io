@@ -114,6 +114,10 @@ document) and only if you tick the box; **Forget it** deletes it.
 **T+ Text** adds free text (today's date by default), for example a name or a
 date next to the signature.
 
+The same **✍ Sign** and **🖍 Highlight** are in the drawing, painting and
+photo editors, text documents and presentations (see
+[Drawing](./drawing#tools)).
+
 ::: warning Visual signature only
 The signature is an image added to the page. It is **not** a cryptographic
 digital signature (certificate-based, PAdES) and does not prove the

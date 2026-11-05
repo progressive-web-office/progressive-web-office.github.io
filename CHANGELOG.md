@@ -10,6 +10,14 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
 
 ### Added
 
+- **Signing and highlighting everywhere** (MARK-001..MARK-003): *✍ Sign*
+  opens the signature pad of the PDF viewer (the remembered signature
+  offered) in the drawing, painting and photo editors, text documents and
+  presentations, and places the signature as a picture moved and resized
+  with its proportions kept (a new layer in a painting). *🖍 Highlight* draws
+  a wide translucent stroke, yellow by default, straight with Shift, in the
+  drawing and painting editors. Both are named as in the PDF viewer and
+  offered by the command palette.
 - The installed application offers "New document", "New spreadsheet" and "New
   presentation" from its icon (long press or right click), and its manifest
   gives its language, direction, orientation and screenshots (desktop and

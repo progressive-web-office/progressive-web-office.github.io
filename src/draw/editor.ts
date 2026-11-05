@@ -5,9 +5,10 @@
 import { attachZoomPan, zoomAt } from '../app/zoom-pan';
 import { button, h } from '../app/dom';
 import { immersive } from '../app/immersive';
+import { askSignature, fitSize, pngDataUrl, signButton } from '../app/mark';
 import { t } from '../i18n';
 import {
-  bbox, connectionPoints, duplicate, emptyDrawing, formatValue, mirror, moveShapes, newId, placeSymbol, reconnect, remove, rotate, route, shapeById, snap,
+  bbox, connectionPoints, duplicate, emptyDrawing, formatValue, highlightShape, mirror, moveShapes, newId, placeSymbol, reconnect, remove, rotate, route, shapeById, snap,
   type Drawing, type End, type LineShape, type Pt, type Shape, type TextRun, type TextShape,
 } from './model';
 import { exportPng } from './raster';
@@ -15,7 +16,7 @@ import { lineSizes, normalizeRuns, runsFromHtml, runsOf, runsToHtml, styleRuns }
 import { drawingBody, toSvg } from './svg';
 import { searchSymbols, symbolDef, type SymbolCategory, type SymbolDef } from './symbols';
 
-export type Tool = 'select' | 'rect' | 'ellipse' | 'line' | 'arrow' | 'free' | 'text' | 'wire';
+export type Tool = 'select' | 'rect' | 'ellipse' | 'line' | 'arrow' | 'free' | 'highlight' | 'text' | 'wire';
 
 /** PDF-021: how the editor opens — over a picture of a PDF page, for example. */
 export interface DrawOptions {
@@ -64,7 +65,7 @@ export function shapeName(s: Shape): string {
     case 'ellipse':
       return t('draw.ellipse');
     case 'free':
-      return t('draw.free');
+      return s.highlight ? t('pdf.highlight') : t('draw.free');
     case 'image':
       return s.alt ? `${t('draw.picture')}: ${s.alt}` : t('draw.picture');
     default:
@@ -416,6 +417,8 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
       let shape: Shape;
       if (tool === 'rect' || tool === 'ellipse') shape = { id, kind: tool, x: at[0], y: at[1], w: 0, h: 0, ...st, fill: style.fill };
       else if (tool === 'free') shape = { id, kind: 'free', points: [p], ...st, width: Math.max(2, style.width) };
+      // MARK-002: the highlighter.
+      else if (tool === 'highlight') shape = highlightShape(id, [p]);
       else if (tool === 'text') {
         // PDF-021: a text typed where it goes, on several lines; a press on a text edits it.
         const hit = target.closest('[data-id]')?.getAttribute('data-id') ?? shapeAt(p);
@@ -474,7 +477,8 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
           let [w, hh] = [q[0] - drag.from[0], q[1] - drag.from[1]];
           if (e.shiftKey) w = hh = Math.max(Math.abs(w), Math.abs(hh)) * Math.sign(w || 1);
           Object.assign(s, { x: Math.min(drag.from[0], drag.from[0] + w), y: Math.min(drag.from[1], drag.from[1] + hh), w: Math.abs(w), h: Math.abs(hh) });
-        } else if (s.kind === 'free') s.points.push(p);
+        } else if (s.kind === 'free' && s.highlight && e.shiftKey) s.points = [s.points[0]!, p];
+        else if (s.kind === 'free') s.points.push(p);
         else if (s.kind === 'line') {
           const end = attachAt(p)?.at ?? q;
           s.points = s.ortho ? route(s.points[0]!, end, Math.abs(end[0] - s.points[0]![0]) >= Math.abs(end[1] - s.points[0]![1])) : [s.points[0]!, end];
@@ -800,6 +804,17 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
       remove(d, selected);
       select([]);
     };
+    /** MARK-001: the signature pad of the PDF viewer; the signature put in the middle as a picture, selected. */
+    const sign = async (): Promise<void> => {
+      const sig = await askSignature(dialog);
+      if (!sig) return;
+      const size = fitSize(sig.width, sig.height, d.width * 0.4, d.height * 0.3);
+      snapshot();
+      const id = newId(d);
+      d.shapes.push({ id, kind: 'image', x: Math.round((d.width - size.w) / 2), y: Math.round((d.height - size.h) / 2), w: size.w, h: size.h, href: pngDataUrl(sig.png), alt: t('pdf.signature') });
+      setTool('select');
+      select([id]);
+    };
     const dup = (): void => {
       if (!selected.length) return;
       snapshot();
@@ -912,10 +927,10 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
     // --- toolbar -------------------------------------------------------------------
     const tools: [Tool, string, string][] = [
       ['select', '⬚', t('draw.select')], ['rect', '▭', t('draw.rect')], ['ellipse', '◯', t('draw.ellipse')], ['line', '╱', t('draw.line')],
-      ['arrow', '➝', t('draw.arrow')], ['free', '✎', t('draw.free')], ['text', 'T', t('draw.text')], ['wire', '⌐', t('draw.wire')],
+      ['arrow', '➝', t('draw.arrow')], ['free', '✎', t('draw.free')], ['highlight', '🖍', t('pdf.highlight')], ['text', 'T', t('draw.text')], ['wire', '⌐', t('draw.wire')],
     ];
     const toolButtons = tools.map(([value, icon, label]) => {
-      const b = button(label, () => setTool(value), { text: icon, title: label, pressed: value === tool });
+      const b = button(label, () => setTool(value), { text: icon, title: value === 'highlight' ? t('mark.highlightTitle') : label, pressed: value === tool });
       b.dataset.tool = value;
       return b;
     });
@@ -1055,7 +1070,7 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
     const toolbarEl = h(
       'div',
       { class: 'draw-toolbar', role: 'toolbar', 'aria-label': t('draw.tools') },
-      h('span', { class: 'draw-group' }, ...toolButtons),
+      h('span', { class: 'draw-group' }, ...toolButtons, signButton(() => void sign())),
       h('span', { class: 'draw-group' }, undoBtn, redoBtn),
       h(
         'span',

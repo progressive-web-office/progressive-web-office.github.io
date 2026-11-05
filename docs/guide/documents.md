@@ -68,6 +68,7 @@ menu, <kbd>Enter</kbd> chooses, <kbd>Esc</kbd> closes it.
 | Special character (², °, ±, →, α, €, …) | Ω: a grid by group, searched by name | |
 | Link | 🔗 | <kbd>Ctrl</kbd>+<kbd>K</kbd> |
 | Image | 🖼 (or paste / drop an image) | |
+| Signature | **Insert → ✍ Add signature**: drawn or imported, as in the [PDF viewer](./pdf#signing); inserted as a picture at the cursor | |
 | Table | ▦ (3×3), then the table bar (below) | <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> to move between cells |
 | Horizontal rule | ― | |
 | Page break | ⤓ | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> |
@@ -131,7 +132,9 @@ then **Edit the picture…**:
   blur it — a face, a name, a number plate — before sharing the document;
 - **🖍 Highlight** a region, draw a red **➚ Arrow**, or click with **T Text**
   to write a label (red, outlined in white to be read on any background);
-  **↶** removes the last mark;
+  **✍ Sign** puts a signature at the bottom right, then drag a box to place
+  it there, its proportions kept (a click moves it); **↶** removes the last
+  mark;
 - **Brightness**, **Contrast** and **Size (%)** (a smaller picture makes a
   lighter document).
 

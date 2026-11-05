@@ -5,6 +5,7 @@
  */
 import { button, h } from '../app/dom';
 import { t } from '../i18n';
+import { askSignature, fitSize, signButton, signatureImage } from '../app/mark';
 import { drawTurned, flipMark, flipRect, isUnchanged, NO_EDIT, outputSize, rectBetween, renderPhoto, turnedSize, turnMark, turnRect, type PhotoEdit, type Rect } from './photo';
 
 export interface EditedPhoto {
@@ -14,7 +15,8 @@ export interface EditedPhoto {
   height: number;
 }
 
-type Tool = 'crop' | 'blur' | 'highlight' | 'arrow' | 'text';
+/** `sign`: after ✍ Sign, a drag places the signature again, its size chosen (MARK-001). */
+type Tool = 'crop' | 'blur' | 'highlight' | 'arrow' | 'text' | 'sign';
 
 /** Largest side of the preview, in CSS pixels. */
 const PREVIEW = 640;
@@ -118,6 +120,22 @@ export async function editPhoto(host: HTMLElement, bytes: Uint8Array, mediaType:
       const { from, to } = drag;
       const r = rectBetween(from, to, turned.width, turned.height);
       drag = undefined;
+      if (tool === 'sign') {
+        const at = edit.marks.findLastIndex((m) => m.kind === 'signature');
+        const sig = edit.marks[at];
+        if (sig?.kind !== 'signature') return draw();
+        let rect: Rect;
+        if (r.w < 4 || r.h < 4) rect = { ...sig.rect, x: from[0] - sig.rect.w / 2, y: from[1] - sig.rect.h / 2 };
+        else {
+          // Fitted in the box dragged, its proportions kept.
+          const k = Math.min(r.w / sig.rect.w, r.h / sig.rect.h);
+          rect = { x: r.x, y: r.y, w: Math.round(sig.rect.w * k), h: Math.round(sig.rect.h * k) };
+        }
+        const marks = edit.marks.slice();
+        marks[at] = { ...sig, rect };
+        update({ marks }, true);
+        return;
+      }
       if (tool === 'text') {
         const text = window.prompt(t('photo.textPrompt'))?.trim();
         if (text) update({ marks: [...edit.marks, { kind: 'text', at: from, text }] }, true);
@@ -142,10 +160,25 @@ export async function editPhoto(host: HTMLElement, bytes: Uint8Array, mediaType:
     canvas.addEventListener('pointerup', release);
     canvas.addEventListener('pointercancel', release);
 
+    /** MARK-001: the signature pad of the PDF viewer; the signature put at the bottom right. */
+    const sign = async (): Promise<void> => {
+      const sig = await askSignature(dialog);
+      if (!sig) return;
+      const image = await signatureImage(sig.png);
+      const size = fitSize(sig.width, sig.height, turned.width * 0.35, turned.height * 0.25);
+      const margin = Math.round(Math.min(turned.width, turned.height) * 0.04);
+      const rect = { x: turned.width - size.w - margin, y: turned.height - size.h - margin, ...size };
+      update({ marks: [...edit.marks, { kind: 'signature', rect, image }] }, true);
+      tool = 'sign';
+      for (const input of dialog.querySelectorAll<HTMLInputElement>('input[name=photo-tool]')) input.checked = false;
+      hint.textContent = t('photo.signHint');
+    };
+    const hint = h('p', { class: 'hint' }, t('photo.hint'));
     const toolRadio = (value: Tool, label: string): HTMLLabelElement => {
       const input = h('input', { type: 'radio', name: 'photo-tool', value, checked: value === tool });
       input.addEventListener('change', () => {
         tool = value;
+        hint.textContent = t('photo.hint');
         draw();
       });
       return h('label', { class: 'photo-tool' }, input, ` ${label}`);
@@ -180,9 +213,10 @@ export async function editPhoto(host: HTMLElement, bytes: Uint8Array, mediaType:
         button(t('photo.turnRight'), () => turn(90), { text: '⟳', title: t('photo.turnRight') }),
         button(t('photo.flip'), flip, { text: '⇋', title: t('photo.flip') }),
         h('span', { class: 'photo-tool-group', role: 'radiogroup', 'aria-label': t('photo.dragTool') }, toolRadio('crop', `✂ ${t('photo.crop')}`), toolRadio('blur', `▒ ${t('photo.blur')}`), toolRadio('highlight', `🖍 ${t('photo.highlight')}`), toolRadio('arrow', `➚ ${t('photo.arrow')}`), toolRadio('text', `T ${t('photo.text')}`)),
+        signButton(() => void sign()),
         button(t('photo.undoMark'), () => update(edit.marks.length ? { marks: edit.marks.slice(0, -1) } : { blurs: edit.blurs.slice(0, -1) }, true), { text: `↶ ${t('photo.undoMark')}` }),
       ),
-      h('p', { class: 'hint' }, t('photo.hint')),
+      hint,
       h('div', { class: 'photo-stage' }, canvas),
       h('div', { class: 'photo-sliders' }, brightness, contrast, scale, size),
       h('div', { class: 'dialog-actions' }, button(t('photo.reset'), reset), button(t('common.cancel'), () => finish(null)), button(t('photo.apply'), () => void apply(), { className: 'primary' })),

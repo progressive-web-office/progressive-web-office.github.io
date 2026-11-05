@@ -15,7 +15,9 @@ export interface Rect {
 export type PhotoMark =
   | { kind: 'arrow'; from: [number, number]; to: [number, number] }
   | { kind: 'highlight'; rect: Rect }
-  | { kind: 'text'; at: [number, number]; text: string };
+  | { kind: 'text'; at: [number, number]; text: string }
+  /** MARK-001: a signature, upright, of the size chosen. */
+  | { kind: 'signature'; rect: Rect; image: CanvasImageSource };
 
 export interface PhotoEdit {
   /** Quarter turns, clockwise. */
@@ -76,6 +78,11 @@ export function turnPoint([x, y]: [number, number], w: number, h: number, by: 90
 export function turnMark(m: PhotoMark, w: number, h: number, by: 90 | 270): PhotoMark {
   if (m.kind === 'arrow') return { ...m, from: turnPoint(m.from, w, h, by), to: turnPoint(m.to, w, h, by) };
   if (m.kind === 'text') return { ...m, at: turnPoint(m.at, w, h, by) };
+  if (m.kind === 'signature') {
+    // Its centre follows the picture; it stays upright and of its size.
+    const [cx, cy] = turnPoint([m.rect.x + m.rect.w / 2, m.rect.y + m.rect.h / 2], w, h, by);
+    return { ...m, rect: { ...m.rect, x: cx - m.rect.w / 2, y: cy - m.rect.h / 2 } };
+  }
   return { ...m, rect: turnRect(m.rect, w, h, by) };
 }
 
@@ -96,6 +103,8 @@ export function drawMarks(ctx: CanvasRenderingContext2D, marks: PhotoMark[], w: 
       ctx.strokeStyle = 'rgba(230, 180, 0, 0.9)';
       ctx.lineWidth = Math.max(1, line / 2);
       ctx.strokeRect(m.rect.x, m.rect.y, m.rect.w, m.rect.h);
+    } else if (m.kind === 'signature') {
+      ctx.drawImage(m.image, m.rect.x, m.rect.y, m.rect.w, m.rect.h);
     } else if (m.kind === 'arrow') {
       const [x1, y1] = m.from;
       const [x2, y2] = m.to;

@@ -372,6 +372,8 @@ any other tool. Planned, the most useful first:
   selection, canvas size — for a new picture or any picture
 - ✅ Drawing and painting editors in the whole window, tools folding away,
   full screen, with the command palette (DRAW-022)
+- ✅ ✍ Sign and 🖍 Highlight wherever something is marked up: drawing,
+  painting, photo, text documents, presentations (MARK-001..MARK-003)
 - OpenDocument drawings (.odg), draw.io diagrams (DRAW-010)
 - ✅ Caption images easily: a caption and alt text when inserting or pasting
   a picture (IMG-003), and an accessibility check (DOC-030)

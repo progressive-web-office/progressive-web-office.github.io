@@ -2,6 +2,7 @@
  * DRAW-001..DRAW-006: the drawing model — shapes, connectors and schematic
  * symbols, in drawing units (CSS pixels at 100 %).
  */
+import { HIGHLIGHT } from '../app/mark';
 import { lineGap, lineSizes, runLines, runsOf } from './rich';
 import { symbolDef, type Pt } from './symbols';
 
@@ -39,7 +40,13 @@ export interface LineShape extends Style {
   to?: End;
   label?: string;
 }
-export interface FreeShape extends Style { id: string; kind: 'free'; points: Pt[] }
+/** A freehand stroke; `highlight`: drawn with the highlighter (MARK-002). */
+export interface FreeShape extends Style { id: string; kind: 'free'; points: Pt[]; highlight?: boolean }
+
+/** MARK-002: a highlighter stroke — wide, translucent, yellow by default. */
+export function highlightShape(id: string, points: Pt[], color: string = HIGHLIGHT.color, width: number = HIGHLIGHT.width): FreeShape {
+  return { id, kind: 'free', points, stroke: color, width: Math.max(12, width), opacity: HIGHLIGHT.opacity, highlight: true };
+}
 /** A part of a text with a look of its own (DRAW-001, PDF-021); unset fields take the box's. */
 export interface TextRun { text: string; size?: number; bold?: boolean; italic?: boolean; underline?: boolean; fill?: string }
 /** `text` is always the whole text; `runs`, when set, cut it in parts with their own looks. */
