@@ -2107,3 +2107,112 @@ button[data-icon]:not(.card):not(.template-card):not(.template-tab):not(.start-l
 }
 /* DRAW-022: the command palette of a full-window editor. */
 .draw-palette { font-weight: 600; color: var(--accent); border-color: var(--accent) !important; white-space: nowrap; }
+
+/* RSVP-001..RSVP-006: the speed reader, the whole window, the word in the middle. */
+.dialog.rsvp-dialog[open] {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem 16px;
+  background: var(--surface);
+  color: var(--text);
+}
+.rsvp-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.rsvp-head h2 {
+  margin: 0 auto 0 0;
+  font-size: 1.1rem;
+}
+.rsvp-speed {
+  width: 5.5em;
+}
+.rsvp-stage {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+/* RSVP-002: the fixed mark over and under the letter the eye fixes. */
+.rsvp-mark {
+  position: absolute;
+  left: 50%;
+  top: calc(50% - 1.6em);
+  bottom: calc(50% - 1.6em);
+  border-left: 2px solid var(--border);
+  font-size: clamp(2rem, 6vw, 4rem);
+}
+.rsvp-mark::after {
+  content: '';
+  position: absolute;
+  inset: 0.4em 0 0.4em -2px;
+  border-left: 2px solid var(--surface);
+}
+.rsvp-word {
+  position: relative;
+  display: flex;
+  width: 100%;
+  font-size: clamp(2rem, 6vw, 4rem);
+  font-weight: 500;
+  white-space: pre;
+}
+.rsvp-before {
+  flex: 1;
+  text-align: right;
+}
+.rsvp-after {
+  flex: 1;
+  text-align: left;
+}
+.rsvp-pivot {
+  color: var(--danger);
+}
+.rsvp-word.heading {
+  justify-content: center;
+  font-weight: 700;
+  white-space: normal;
+  text-align: center;
+}
+.rsvp-word.heading .rsvp-pivot {
+  color: inherit;
+}
+.rsvp-word.heading .rsvp-before,
+.rsvp-word.heading .rsvp-after {
+  display: none;
+}
+.rsvp-context {
+  min-height: 3em;
+  margin: 0 auto;
+  max-width: 40em;
+  text-align: center;
+  color: var(--muted);
+}
+.rsvp-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.rsvp-progress {
+  flex: 1;
+  min-width: 8em;
+  max-width: 30em;
+}
+.rsvp-hint {
+  text-align: center;
+  margin: 0;
+}

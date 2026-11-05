@@ -3170,7 +3170,8 @@ export class App {
         void this.openPalette();
         return;
       }
-      if (key === 's') {
+      // Ctrl+Alt+S is the speed reader (RSVP-001).
+      if (key === 's' && !e.altKey) {
         e.preventDefault();
         void this.save();
       } else if (key === 'o' && e.shiftKey) {

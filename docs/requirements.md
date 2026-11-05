@@ -530,6 +530,22 @@ integration is ever needed.
 | REVIEW-005 | S | 0.2.0 | The PDF viewer shall offer the same review mode button and shortcut (Ctrl+Alt+R): the highlight and note tools named in the toolbar, the form and signature tools hidden, and the annotations panel shown, explaining how to annotate while it is empty. |
 | REVIEW-006 | S | 0.2.0 | The review mode shall be one switch for every file: turned on in a text document or a PDF file, the files opened next open in review mode, until it is left in any of them; the settings shall show and change the same switch. |
 
+## 9m2. Speed reading (RSVP)
+
+Rapid serial visual presentation: the text shown one word at a time, in one
+place, so that the eyes do not move.
+
+| ID | Pri | Phase | Requirement |
+|----|-----|-------|-------------|
+| RSVP-001 | S | 0.2.0 | When the user chooses ⚡ Speed reading (toolbar, command palette or Ctrl+Alt+S) in a text document, a Markdown note or a PDF file, the system shall show its text one word at a time in the middle of a full-window reader, from the cursor (or the current page), at a chosen speed of 100 to 1000 words per minute, 300 by default. |
+| RSVP-002 | S | 0.2.0 | The system shall align each word on its recognition point (about a third into the word), shown in colour on a fixed mark, so that the eyes do not move. |
+| RSVP-003 | S | 0.2.0 | The system shall show a word longer after a comma (×1.5), the end of a sentence (×2) or a paragraph (×2.5), and long words (more than 8 letters) longer, and shall show each heading on its own before its section. |
+| RSVP-004 | S | 0.2.0 | While reading, the system shall pause and resume (Space), go back or forward a word (← →) or a sentence (Ctrl+← →), change speed (↑ ↓, by 25 words per minute), and show the progress and the time left. While paused, it shall show the sentence around the word. |
+| RSVP-005 | S | 0.2.0 | When the reader is closed, the system shall put the cursor of the document (or the page of the PDF) at the last word read, and shall remember the speed. |
+| RSVP-006 | S | 0.2.0 | The reader shall follow the light or dark theme and the text size, and shall not announce each word to screen readers, only the sentence while paused. |
+| RSVP-007 | C | 0.2.0 | The system should show 1, 2 or 3 words at a time, at the user's choice, remembered with the speed. |
+| RSVP-008 | W | — | Speed reading EPUB books, pages of the web, or text in pictures (OCR). |
+
 ## 9n. Settings (SET)
 
 | ID | Pri | Phase | Requirement |

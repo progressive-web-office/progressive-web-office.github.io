@@ -444,6 +444,11 @@ export class DocumentEditor implements EditorView {
         e.preventDefault();
         this.review.toggle();
       }
+      // RSVP-001: Ctrl+Alt+S reads the document one word at a time.
+      if ((e.ctrlKey || e.metaKey) && e.altKey && !e.shiftKey && e.code === 'KeyS' && !(e.target as Element).closest?.('dialog')) {
+        e.preventDefault();
+        void this.speedRead();
+      }
     });
     this.element.style.setProperty('--solution-label', JSON.stringify(t('solution.label')));
     for (const toc of this.tocViews) toc.refresh();
@@ -772,6 +777,26 @@ export class DocumentEditor implements EditorView {
   }
 
   /** Give the focus back to the document, without touching the selection when it already has it. */
+  /** RSVP-001, RSVP-005: the document read one word at a time from the cursor, the cursor put back at the last word read. */
+  private async speedRead(): Promise<void> {
+    const [{ speedRead }, { startAt, toWords }] = await Promise.all([import('../rsvp/reader'), import('../rsvp/words')]);
+    const blocks: import('../rsvp/words').Block[] = [];
+    this.view.state.doc.descendants((node, pos) => {
+      if (!node.isTextblock) return true;
+      // A picture or a break counts as one place, as in the document.
+      blocks.push({ text: node.textBetween(0, node.content.size, undefined, '\uFFFC'), heading: node.type.name === 'heading', at: pos + 1 });
+      return false;
+    });
+    const from = this.view.state.selection.from;
+    const block = Math.max(0, blocks.findIndex((b) => b.at + b.text.length >= from));
+    const last = await speedRead(this.element, blocks, startAt(toWords(blocks), block, from));
+    if (last) {
+      const doc = this.view.state.doc;
+      this.view.dispatch(this.view.state.tr.setSelection(TextSelection.near(doc.resolve(Math.min(last.at, doc.content.size)))).scrollIntoView());
+    }
+    this.refocus();
+  }
+
   private refocus(): void {
     if (!this.view.hasFocus()) this.view.focus();
   }
@@ -2130,7 +2155,9 @@ export class DocumentEditor implements EditorView {
     const toggle = this.review.active
       ? { label: t('review.leaveTitle'), where: t('review.bar'), keys: ['Ctrl+Alt+R'], run: () => this.review.toggle(false) }
       : { label: t('review.mode'), where: t('doc.formatting'), keys: ['Ctrl+Alt+R'], keywords: REVIEW_KEYWORDS, run: () => this.review.toggle(true) };
-    if (this.review.active || this.readOnly) return [toggle, ...this.review.commands()];
+    // RSVP-001: the speed reader, also in a document read only.
+    const rsvp = { label: t('rsvp.title'), where: t('doc.formatting'), keys: ['Ctrl+Alt+S'], keywords: 'RSVP', run: () => void this.speedRead() };
+    if (this.review.active || this.readOnly) return [toggle, rsvp, ...this.review.commands()];
     // UI-022: what the context menu offers, by category.
     const where = t('doc.formatting');
     const fields = FIELD_KINDS.map((kind) => ({ label: t(`field.${kind}`), category: t('field.menu'), where, run: () => this.insertField(kind) }));
@@ -2567,6 +2594,7 @@ export class DocumentEditor implements EditorView {
       { class: 'toolbar', role: 'toolbar', 'aria-label': t('doc.formatting') },
       // REVIEW-001: the review mode, named, first in the toolbar.
       withKeywords(act(t('review.mode'), compact ? '📖' : `📖 ${t('review.mode')}`, () => this.review.toggle(true), t('review.modeTitle')), REVIEW_KEYWORDS),
+      act(t('rsvp.title'), '⚡', () => void this.speedRead(), t('rsvp.button')),
       h('span', { class: 'sep' }),
       act(t('common.undo'), '↶', () => this.command(undo), `${t('common.undo')} (Ctrl+Z)`),
       act(t('common.redo'), '↷', () => this.command(redo), `${t('common.redo')} (Ctrl+Y)`),

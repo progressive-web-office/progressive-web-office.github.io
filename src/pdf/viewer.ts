@@ -176,6 +176,12 @@ export class PdfViewer implements EditorView {
         this.setReviewing(!this.reviewing);
         return;
       }
+      // RSVP-001: Ctrl+Alt+S reads the pages one word at a time.
+      if ((e.ctrlKey || e.metaKey) && e.altKey && !e.shiftKey && e.code === 'KeyS') {
+        e.preventDefault();
+        void this.speedRead();
+        return;
+      }
       if (e.key === 'Escape' && isDistractionFree() && !isTyping(e.target)) {
         e.preventDefault();
         this.toggleFullscreen(false);
@@ -663,6 +669,21 @@ export class PdfViewer implements EditorView {
     void this.search(query);
   }
 
+  /** RSVP-001, RSVP-005: the pages read one word at a time from the current one; then the page of the last word read. */
+  private async speedRead(): Promise<void> {
+    const [{ speedRead }, { startAt, toWords }] = await Promise.all([import('../rsvp/reader'), import('../rsvp/words')]);
+    const blocks = await Promise.all(
+      Array.from({ length: this.doc.numPages }, async (_, i) => {
+        const content = await (await this.doc.getPage(i + 1)).getTextContent();
+        const text = content.items.map((item) => ('str' in item ? item.str + (item.hasEOL ? '\n' : '') : '')).join('');
+        return { text, at: 0 };
+      }),
+    );
+    const last = await speedRead(this.element, blocks, startAt(toWords(blocks), this.current - 1, 0));
+    if (last) this.goTo(last.block + 1);
+    this.scroller.focus();
+  }
+
   private pageTexts(): Promise<string[][]> {
     this.texts ??= Promise.all(
       Array.from({ length: this.doc.numPages }, async (_, i) => {
@@ -736,6 +757,7 @@ export class PdfViewer implements EditorView {
       'div',
       { class: 'toolbar', role: 'toolbar', 'aria-label': t('pdf.label') },
       this.reviewButton,
+      button(t('rsvp.title'), () => void this.speedRead(), { text: '⚡', title: t('rsvp.button') }),
       h('span', { class: 'sep' }),
       button(t('pdf.prev'), () => this.goTo(this.current - 1), { text: '◀', title: t('pdf.prevTitle') }),
       this.pageInput,
@@ -839,7 +861,8 @@ export class PdfViewer implements EditorView {
     const toggle = this.reviewing
       ? { label: t('review.leaveTitle'), where: t('pdf.label'), keys: ['Ctrl+Alt+R'], run: () => this.setReviewing(false) }
       : { label: t('review.mode'), where: t('pdf.label'), keys: ['Ctrl+Alt+R'], keywords: REVIEW_KEYWORDS, run: () => this.setReviewing(true) };
-    return [toggle, ...reviewCommands((a) => t(`review.action.${a}` as MessageKey), t('pdf.label'), (a) => void this.review(a))];
+    const rsvp = { label: t('rsvp.title'), where: t('pdf.label'), keys: ['Ctrl+Alt+S'], keywords: 'RSVP', run: () => void this.speedRead() };
+    return [toggle, rsvp, ...reviewCommands((a) => t(`review.action.${a}` as MessageKey), t('pdf.label'), (a) => void this.review(a))];
   }
 
   /** Do a review action; false when it does not apply. */

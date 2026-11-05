@@ -10,6 +10,14 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
 
 ### Added
 
+- **Speed reading** (RSVP-001..RSVP-007): *⚡ Speed reading* (toolbar,
+  command palette or Ctrl+Alt+S) shows a text document, a Markdown note or a
+  PDF file one word at a time in the whole window, from the cursor or the
+  current page, each word aligned on its recognition point and shown longer
+  after punctuation, at 100 to 1000 words per minute; Space pauses (the
+  sentence then shown), the arrows move by word or sentence and change the
+  speed, 1 to 3 words at a time; closing it puts the cursor (or the page) at
+  the last word read.
 - **Signing and highlighting everywhere** (MARK-001..MARK-003): *✍ Sign*
   opens the signature pad of the PDF viewer (the remembered signature
   offered) in the drawing, painting and photo editors, text documents and
