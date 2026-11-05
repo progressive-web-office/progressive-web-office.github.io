@@ -87,6 +87,9 @@ group is not a commitment.
   or scrolled, the same shortcuts (k/j…), comments, full screen without
   distractions (REVIEW-001 to REVIEW-004); next: clickable outline, read
   aloud (Web Speech)
+- ✅ Speed reading (RSVP): one word at a time, aligned on its recognition
+  point, in text documents, Markdown notes and PDF files (RSVP-001 to
+  RSVP-007)
 
 ### Files
 

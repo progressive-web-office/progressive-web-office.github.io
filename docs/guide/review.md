@@ -50,6 +50,33 @@ remembered.
 the pages, the review bar and the comments. <kbd>Esc</kbd> or <kbd>f</kbd>
 leaves it.
 
+## Speed reading
+
+**⚡ Speed reading** (in the toolbar of a text document, a Markdown note or
+a PDF file, in the command palette, or <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>S</kbd>)
+shows the text one word at a time in the middle of the window, so that the
+eyes do not move (rapid serial visual presentation, RSVP). It starts from
+the cursor, or from the current page of a PDF, paused on the first word.
+
+- The letter the eye fixes, about a third into the word, is in colour under
+  a fixed mark.
+- A word stays longer after a comma, at the end of a sentence or of a
+  paragraph, and when it is long; each heading is shown on its own.
+- **Speed**: 100 to 1000 words per minute (300 at first), remembered;
+  **Words at a time**: 1, 2 or 3 (never past the end of a sentence).
+- The progress and the time left are shown below; while paused, the whole
+  sentence around the word too (and screen readers read it — not each word).
+- **Done** or <kbd>Esc</kbd> goes back to the text, the cursor (or the page
+  of the PDF) at the last word read.
+
+| Key | Action |
+|---|---|
+| <kbd>Space</kbd> | Read / pause |
+| <kbd>←</kbd> / <kbd>→</kbd> | Previous / next word |
+| <kbd>Ctrl</kbd>+<kbd>←</kbd> / <kbd>Ctrl</kbd>+<kbd>→</kbd> | Start of the sentence (or the previous one) / next sentence |
+| <kbd>↑</kbd> / <kbd>↓</kbd> | Faster / slower, by 25 words per minute |
+| <kbd>Esc</kbd> | Back to the text |
+
 ## Keyboard shortcuts
 
 Single keys, when the cursor is not in a field (⌨ or <kbd>?</kbd> lists them):
