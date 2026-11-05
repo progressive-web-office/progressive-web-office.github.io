@@ -471,7 +471,7 @@ export const zh: Record<MessageKey, string> = {
   'pdf.signText': '✍ 签名',
   'pdf.signTitle': '绘制或导入签名并放置到页面上',
   'pdf.addText': '添加文本',
-  'pdf.addTextText': 'T+ 文本',
+  'pdf.addTextText': 'T 文本',
   'pdf.addTextTitle': '在页面上添加文本（例如日期或姓名）',
   'pdf.textPrompt': '要添加到页面的文本',
   'pdf.saveFlattened': '固定的 PDF – 字段不可编辑 (.pdf)',

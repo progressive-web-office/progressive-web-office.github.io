@@ -471,7 +471,7 @@ export const fr: Record<MessageKey, string> = {
   'pdf.signText': '✍ Signer',
   'pdf.signTitle': 'Dessiner ou importer une signature et la placer sur la page',
   'pdf.addText': 'Ajouter du texte',
-  'pdf.addTextText': 'T+ Texte',
+  'pdf.addTextText': 'T Texte',
   'pdf.addTextTitle': 'Ajouter du texte (une date ou un nom par ex.) sur la page',
   'pdf.textPrompt': 'Texte à ajouter sur la page',
   'pdf.saveFlattened': 'PDF figé – champs non modifiables (.pdf)',

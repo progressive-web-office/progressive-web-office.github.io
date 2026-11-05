@@ -83,7 +83,7 @@ page shown underneath:
   frame or underline what matters. A white rectangle without border hides
   what is under it.
 - The **signatures** and **texts** already put on the page (**✍ Sign**,
-  **T+ Text**) come into the drawing: they can be moved, resized (a
+  **T Text**) come into the drawing: they can be moved, resized (a
   signature keeps its proportions; <kbd>Shift</kbd> stretches it) and
   edited with the rest. **Cancel** leaves them on the page as they were.
 - **Done** puts the drawing on the page; **✏** at the top right of the page
@@ -111,7 +111,7 @@ device** before placing it: next time, **Use this signature** places it in
 one click. It is kept only in this browser (never sent, never in a
 document) and only if you tick the box; **Forget it** deletes it.
 
-**T+ Text** adds free text (today's date by default), for example a name or a
+**T Text** adds free text (today's date by default), for example a name or a
 date next to the signature.
 
 The same **✍ Sign** and **🖍 Highlight** are in the drawing, painting and
