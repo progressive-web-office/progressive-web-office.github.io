@@ -50,6 +50,11 @@ export class FolderIndex {
     return entry;
   }
 
+  /** The text of a file (AI-011), empty when it has none. */
+  async textOf(path: string): Promise<string | undefined> {
+    return (await this.text(path))?.text;
+  }
+
   /** Files containing `query` (ignoring case and accents), in folder order. */
   async search(query: string, paths: string[], limit = 200): Promise<SearchHit[]> {
     const q = fold(query.trim());

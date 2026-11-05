@@ -16,6 +16,8 @@ undone.
 | Text document | read it (as Markdown, block by block), rewrite, insert or delete blocks, find and replace — including LaTeX equations `$…$` |
 | Spreadsheet | list and read sheets (values, formulas, results), write values and formulas, add sheets |
 | Presentation | read slides and shapes, change text, add slides with bullet points, add text boxes, delete slides |
+| PDF file | read the text of its pages, list and fill its form fields (only with values they accept), list its annotations, place a note on a page, highlight a text it finds |
+| Open folder | list the notes and documents of the folder, search them (with extracts) and read one as text — never outside the folder, never changing them |
 
 ## Set up
 
@@ -84,10 +86,15 @@ equation after the second paragraph”*.
 When the browser exposes the experimental **WebMCP** API
 (`document.modelContext`, previously `navigator.modelContext`), Progressive
 Web Office registers the same tools — prefixed `pwo_`, for example
-`pwo_read_document`, `pwo_set_cells`, `pwo_add_slide` — for the open
-document. An AI agent running in the browser (an assistant built into the
+`pwo_read_document`, `pwo_set_cells`, `pwo_add_slide`, `pwo_fill_pdf_fields`
+— for the open document, and `pwo_list_notes`, `pwo_search_notes` and
+`pwo_read_note` while a folder is open. An AI agent running in the browser (an assistant built into the
 browser, an extension…) can then read and edit the document.
 
 Read-only tools are marked as such; **every modification asks for your
 approval** in a dialog showing the tool and its arguments. Tools are
-unregistered when the document is closed.
+unregistered when the document (or the folder) is closed.
+
+For example, an agent of the browser can read a letter in another tab and
+fill the PDF form it asks for, or answer a question from your notes, citing
+the notes it read.

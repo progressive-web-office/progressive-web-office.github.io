@@ -370,6 +370,19 @@ export class FolderPanel {
     this.paths = entries.map((e) => e.path).filter((p) => OPENABLE.test(p));
   }
 
+  /** AI-011: the folder for AI agents — its files listed, searched and read as text, nothing changed. */
+  agentHost(): import('../ai/folder-tools').FolderAgentHost {
+    return {
+      label: this.provider.label,
+      files: async () => {
+        if (!this.entries.length) await this.reindex();
+        return this.entries.filter((e) => e.kind === 'file').map((e) => e.path);
+      },
+      search: (query, paths, limit) => this.index.search(query, paths, limit),
+      read: async (path) => (searchable(path) ? this.index.textOf(path) : undefined),
+    };
+  }
+
   async refresh(): Promise<void> {
     await this.reindex();
     await this.explorer.refresh();

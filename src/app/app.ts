@@ -1,6 +1,7 @@
 /** Application shell: start screen, header toolbar, file open/save flow. */
 import { BROWSER_ORIGIN } from '../storage/recent';
 import { inExam } from '../exam/mode';
+import { folderTools } from '../ai/folder-tools';
 import { backupDue, loadBackupSettings } from '../backup/settings';
 import { NEW_HOME, movedFrom } from './move';
 import { backupAge as backupAgeText, lastBackupText as backupLastText } from '../backup/text';
@@ -1004,7 +1005,7 @@ export class App {
       this.assistant = new AssistantPanel({
         context: () => {
           const doc = this.current;
-          return doc?.view.agentTools ? { kind: t(KIND_KEY[doc.kind]), name: doc.name, tools: doc.view.agentTools() } : null;
+          return doc?.view.agentTools ? { kind: t(KIND_KEY[doc.kind]), name: doc.name, tools: this.agentTools(doc) } : null;
         },
         snapshot: () => this.snapshot(),
         confirm: (title, message) => this.confirmDialog(title, message),
@@ -1036,15 +1037,22 @@ export class App {
     };
   }
 
-  /** WebMCP: let in-browser AI agents use the document tools (AI-006). */
-  private async exposeAgentTools(doc: OpenDocument): Promise<void> {
+  /** The tools of the open document, and of the open folder (AI-011). */
+  private agentTools(doc: OpenDocument | null): import('../ai/tools').AgentTool[] {
+    return [...(doc?.view.agentTools?.() ?? []), ...(this.folder ? folderTools(this.folder.agentHost()) : [])];
+  }
+
+  /** WebMCP: let in-browser AI agents use the tools of the document and the folder (AI-006, AI-011). */
+  private async exposeAgentTools(doc: OpenDocument | null = this.current): Promise<void> {
     this.unregisterAgentTools?.();
     this.unregisterAgentTools = null;
     const hasApi = !!((document as unknown as { modelContext?: unknown }).modelContext ?? (navigator as unknown as { modelContext?: unknown }).modelContext);
-    if (!hasApi || !doc.view.agentTools) return;
+    if (!hasApi) return;
+    const tools = this.agentTools(doc);
+    if (!tools.length) return;
     const { registerWebMcpTools } = await import('../ai/webmcp');
     if (this.current !== doc) return;
-    this.unregisterAgentTools = registerWebMcpTools(doc.view.agentTools(), (tool, input) =>
+    this.unregisterAgentTools = registerWebMcpTools(tools, (tool, input) =>
       this.confirmDialog(t('ai.webmcpTitle'), t('ai.webmcpMessage', { tool: tool.name, input: JSON.stringify(input).slice(0, 300) }), t('common.allow')),
     );
   }
@@ -2323,6 +2331,8 @@ export class App {
     await this.withBusy(() => this.folder!.refresh());
     if (folder instanceof DirectoryHandleProvider && folder.id.startsWith('fsa:')) void rememberFolder(folder.root);
     this.renderHeader();
+    // AI-011: the notes of the folder for in-browser AI agents.
+    void this.exposeAgentTools();
     return true;
   }
 
@@ -2369,6 +2379,7 @@ export class App {
     if (!this.confirmArchiveClose()) return;
     this.folder?.element.remove();
     this.folder = null;
+    void this.exposeAgentTools();
     this.localRepo = undefined;
     this.root.classList.remove('with-folder');
     if (this.current) delete this.current.folderPath;
