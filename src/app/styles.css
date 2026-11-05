@@ -420,6 +420,10 @@ table.grid { border-collapse: separate; border-spacing: 0; table-layout: fixed; 
 .pdf-body { flex: 1; min-height: 0; display: flex; }
 .pdf-body .pdf-scroll { flex: 1; min-width: 0; }
 .pdf-note-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.pdf-drawing-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.pdf-drawing-layer > svg { position: absolute; inset: 0; width: 100%; height: 100%; color: #000; }
+.pdf-drawing-edit { position: absolute; top: 4px; right: 4px; pointer-events: auto; opacity: 0.75; }
+.pdf-drawing-edit:hover, .pdf-drawing-edit:focus-visible { opacity: 1; }
 .pdf-highlight { position: absolute; background: rgba(255, 216, 0, 0.45); mix-blend-mode: multiply; }
 .pdf-note-icon { position: absolute; pointer-events: auto; display: grid; place-items: center; font-size: 16px; background: #ffdb33; border: 1px solid #735900; border-radius: 3px; cursor: help; }
 .placing-note .pdf-page { cursor: crosshair; }
@@ -486,7 +490,8 @@ textarea.pdf-field { resize: none; }
 .draw-symbol { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px; font-size: 0.7rem; line-height: 1.1; text-align: center; background: var(--surface, #fff); color: var(--text, #111); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
 .draw-symbol:hover, .draw-symbol:focus-visible { border-color: var(--accent, #2563eb); }
 .draw-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.draw-scroll { flex: 1; overflow: auto; background: #e5e7eb; border-radius: 6px; padding: 12px; }
+.draw-scroll { position: relative; flex: 1; overflow: auto; background: #e5e7eb; border-radius: 6px; padding: 12px; }
+.draw-text-editor { position: absolute; z-index: 2; margin: 0; padding: 2px; border: 1px dashed var(--accent, #2563eb); background: rgba(255, 255, 255, 0.85); font-family: sans-serif; line-height: 1.2; resize: none; overflow: hidden; white-space: pre; min-width: 3em; }
 .draw-stage { display: block; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); touch-action: none; cursor: crosshair; color: #000; }
 .draw-stage[data-tool="select"] { cursor: default; }
 .draw-stage:focus-visible { outline: 2px solid var(--accent, #2563eb); outline-offset: 2px; }

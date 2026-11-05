@@ -400,6 +400,9 @@ any other tool. Planned, the most useful first:
 - Local electronic signatures and signature verification (WebCrypto,
   basic PAdES)
 - ✅ Text search in PDF (PDF-017)
+- ✅ Text boxes, arrows and shapes drawn on a PDF page with the vector drawing
+  editor, saved as vector annotations editable again (PDF-021); next: the
+  PDF's own text edited in place, more fonts for other scripts
 
 ### Files and fidelity
 

@@ -17,6 +17,8 @@ In a text document, choose **Insert → ✏️ Drawing or schematic…** (also i
 right-click menu and the command palette); in a presentation, the same button
 is in the slide toolbar. To change a drawing later, **double-click** it (in a
 document, right-clicking it and choosing **Edit the drawing** works too).
+On a PDF, **✏ Draw** opens the editor over the page, to add text boxes,
+arrows and shapes: see [PDF › Drawing and text boxes](./pdf#drawing-and-text-boxes).
 Any SVG picture of a document opens the same way: its rectangles, circles,
 lines, polygons, paths and texts become editable; what cannot be edited
 (groups with transforms, embedded pictures) is kept as it is and moves as a
@@ -31,7 +33,7 @@ whole.
 | ╱ Line, ➝ Arrow | Drag from one end to the other; an end dropped on a connection point stays attached to it |
 
 | ✎ Freehand | Draw with the mouse, the finger or a pen; the stroke is smoothed |
-| T Text | Click where the text goes |
+| T Text | Click where the text goes and type it in place: <kbd>Enter</kbd> for a new line, <kbd>Escape</kbd> when done; its **Size** is in the bar above; a double click on a text edits it again |
 | ⌐ Wire | Drag from a pin to another pin: the wire is drawn in right angles |
 
 A line selected shows its properties: **arrow at the start**, **arrow at

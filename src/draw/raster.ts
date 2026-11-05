@@ -2,7 +2,8 @@
 import type { Drawing } from './model';
 import { toSvg } from './svg';
 
-export async function svgToPng(svg: string, width: number, height: number, scale = 2): Promise<Blob> {
+/** A transparent picture with `background` null (PDF-021: over a page). */
+export async function svgToPng(svg: string, width: number, height: number, scale = 2, background: string | null = '#ffffff'): Promise<Blob> {
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
   try {
     const img = new Image();
@@ -16,8 +17,10 @@ export async function svgToPng(svg: string, width: number, height: number, scale
     canvas.width = Math.round(width * scale);
     canvas.height = Math.round(height * scale);
     const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (background) {
+      ctx.fillStyle = background;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/png'));
     if (!blob) throw new Error('The picture could not be drawn');
@@ -27,6 +30,6 @@ export async function svgToPng(svg: string, width: number, height: number, scale
   }
 }
 
-export function exportPng(d: Drawing, scale = 2): Promise<Blob> {
-  return svgToPng(toSvg(d), d.width, d.height, scale);
+export function exportPng(d: Drawing, scale = 2, background: string | null = '#ffffff'): Promise<Blob> {
+  return svgToPng(toSvg(d), d.width, d.height, scale, background);
 }

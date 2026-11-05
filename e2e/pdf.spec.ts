@@ -67,6 +67,75 @@ test('highlights text and adds notes saved as PDF annotations (PDF-018)', async 
   expect(errors).toEqual([]);
 });
 
+test('adds text boxes and arrows with the drawing editor, saved as vectors and edited again (PDF-021)', async ({ page }) => {
+  const errors = await openApp(page);
+  await openFile(page, 'sample.pdf', await samplePdf(), 'application/pdf');
+  await expect(page.locator('.pdf-page').first().locator('.textLayer span', { hasText: 'Hello page 1' })).toBeVisible();
+  await page.getByRole('button', { name: 'Draw', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Drawing on page 1' });
+  await expect(dialog.locator('image.draw-background')).toHaveCount(1);
+  // The page cannot change size.
+  await expect(dialog.getByLabel('Width', { exact: true })).toHaveCount(0);
+
+  // The text tool is chosen: a click, then the text is typed in place, on two lines.
+  const stage = dialog.locator('svg.draw-stage');
+  const box = (await stage.boundingBox())!;
+  await page.mouse.click(box.x + box.width * 0.2, box.y + box.height * 0.3);
+  const editor = dialog.locator('textarea.draw-text-editor');
+  await expect(editor).toBeFocused();
+  await editor.pressSequentially('Approved');
+  await editor.press('Enter');
+  await editor.pressSequentially('by Ada');
+  if (process.env.SCREENSHOTS) await page.screenshot({ path: 'test-results/pdf-draw-typing.png' });
+  await editor.press('Escape');
+  await expect(dialog.locator('.draw-objects button', { hasText: 'Approved' })).toHaveCount(1);
+  await expect(dialog.locator('.draw-content tspan')).toHaveText(['Approved', 'by Ada']);
+
+  // An arrow pointing at it.
+  await dialog.getByRole('button', { name: 'Arrow' }).click();
+  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.32, { steps: 4 });
+  await page.mouse.up();
+  await dialog.getByRole('button', { name: 'Done' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.locator('.pdf-page').first().locator('.pdf-drawing-layer tspan')).toHaveText(['Approved', 'by Ada']);
+  if (process.env.SCREENSHOTS) await page.screenshot({ path: 'test-results/pdf-draw-page.png' });
+
+  // The form's fields are annotations too: the stamps alone.
+  const stamps = (doc: PDFDocument): import('@pdfme/pdf-lib').PDFDict[] =>
+    (doc.getPage(0).node.Annots()?.asArray() ?? []).map((ref) => doc.context.lookup(ref) as import('@pdfme/pdf-lib').PDFDict).filter((a) => String(a.get(PDFName.of('Subtype'))) === '/Stamp');
+  const contents = (a: import('@pdfme/pdf-lib').PDFDict): string => (a.get(PDFName.of('Contents')) as import('@pdfme/pdf-lib').PDFHexString).decodeText();
+  const saved = await download(page);
+  const doc = await PDFDocument.load(saved);
+  expect(stamps(doc)).toHaveLength(1);
+  expect(contents(stamps(doc)[0]!)).toBe('Approved\nby Ada');
+
+  // Opened again: one drawing, editable, not drawn twice.
+  await openFile(page, 'drawn.pdf', saved, 'application/pdf');
+  await expect(page).toHaveTitle(/^drawn\.pdf/);
+  const edit = page.getByRole('button', { name: 'Drawing on page 1, editable again' });
+  await expect(edit).toBeVisible();
+  await edit.click();
+  const again = page.getByRole('dialog', { name: 'Drawing on page 1' });
+  await expect(again.locator('.draw-objects button')).toHaveCount(2);
+  // A double click edits the text in place.
+  const text = again.locator('.draw-content text');
+  const tb = (await text.boundingBox())!;
+  await page.mouse.dblclick(tb.x + 5, tb.y + 5);
+  const editor2 = again.locator('textarea.draw-text-editor');
+  await expect(editor2).toBeFocused();
+  await expect(editor2).toHaveValue('Approved\nby Ada');
+  await editor2.press('Control+End');
+  await editor2.pressSequentially(' L.');
+  await editor2.press('Control+Enter');
+  await again.getByRole('button', { name: 'Done' }).click();
+  const doc2 = await PDFDocument.load(await download(page));
+  expect(stamps(doc2)).toHaveLength(1);
+  expect(contents(stamps(doc2)[0]!)).toBe('Approved\nby Ada L.');
+  expect(errors).toEqual([]);
+});
+
 test('finds text in the pages (PDF-017)', async ({ page }) => {
   const errors = await openApp(page);
   await openFile(page, 'sample.pdf', await samplePdf(), 'application/pdf');

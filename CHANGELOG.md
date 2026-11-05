@@ -15,8 +15,19 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
   gives its language, direction, orientation and screenshots (desktop and
   phone), for the install dialog of the browsers and the stores (PLT-009,
   PLT-003).
+- **Drawing on a PDF** (PDF-021): *✏ Draw* opens the drawing editor over the
+  current page to add text boxes, arrows and shapes. A text is typed where
+  you click, on several lines (Enter for a new line, Escape when done), its
+  size chosen; a double click edits it again. Saved as a stamp annotation
+  drawn with vectors (the text stays text), shown by every PDF reader, and
+  editable again when the PDF is opened here; *Flattened PDF* makes it part
+  of the page.
 
 ### Changed
+
+- The text tool of the drawing editor types the text in place, on several
+  lines, with a choice of size, instead of asking for it in a separate window
+  (DRAW-001).
 
 - The kind of an interaction with a contact is free: besides meeting, call,
   e-mail and message, type your own (`🍽 Lunch`), an emoji first if you
