@@ -4,6 +4,7 @@
  */
 import { attachZoomPan, zoomAt } from '../app/zoom-pan';
 import { button, h } from '../app/dom';
+import { immersive } from '../app/immersive';
 import { t } from '../i18n';
 import {
   bbox, connectionPoints, duplicate, emptyDrawing, formatValue, mirror, moveShapes, newId, placeSymbol, reconnect, remove, rotate, route, shapeById, snap,
@@ -64,6 +65,8 @@ export function shapeName(s: Shape): string {
       return t('draw.ellipse');
     case 'free':
       return t('draw.free');
+    case 'image':
+      return s.alt ? `${t('draw.picture')}: ${s.alt}` : t('draw.picture');
     default:
       return t('draw.picture');
   }
@@ -172,7 +175,7 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
     const applyStyle = (patch: Partial<Shape>): void => {
       if (!selected.length) return;
       snapshot();
-      for (const s of sel()) if (s.kind !== 'raw') Object.assign(s, patch);
+      for (const s of sel()) if (s.kind !== 'raw' && s.kind !== 'image') Object.assign(s, patch);
       render();
     };
     strokeInput.addEventListener('input', () => {
@@ -261,7 +264,7 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
         const b = bbox(s) ?? domBox(s.id);
         if (!b) continue;
         overlay.append(svgEl('rect', { x: b[0] - 3, y: b[1] - 3, width: b[2] - b[0] + 6, height: b[3] - b[1] + 6, class: 'draw-selection' }));
-        if ((s.kind === 'rect' || s.kind === 'ellipse') && selected.length === 1) overlay.append(svgEl('rect', { x: b[2] - 4, y: b[3] - 4, width: 8, height: 8, class: 'draw-handle', 'data-handle': 'resize' }));
+        if ((s.kind === 'rect' || s.kind === 'ellipse' || s.kind === 'image') && selected.length === 1) overlay.append(svgEl('rect', { x: b[2] - 4, y: b[3] - 4, width: 8, height: 8, class: 'draw-handle', 'data-handle': 'resize' }));
         if (s.kind === 'line' && selected.length === 1)
           for (const [i, p] of s.points.entries()) {
             const end = i === 0 || i === s.points.length - 1;
@@ -295,7 +298,7 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
         if (document.activeElement !== valueInput) valueInput.value = one.value ?? '';
       }
       if ((one?.kind === 'text' || one?.kind === 'line') && document.activeElement !== textInput) textInput.value = one.kind === 'text' ? one.text : (one.label ?? '');
-      if (one && one.kind !== 'raw') {
+      if (one && one.kind !== 'raw' && one.kind !== 'image') {
         strokeInput.value = /^#[0-9a-f]{6}$/i.test(one.stroke ?? '') ? one.stroke! : '#000000';
         noFill.checked = !one.fill || one.fill === 'none';
         if (!noFill.checked && /^#[0-9a-f]{6}$/i.test(one.fill!)) fillInput.value = one.fill!;
@@ -483,6 +486,13 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
           const q = snapPt(p, e.altKey);
           s.w = Math.max(d.grid || 4, q[0] - s.x);
           s.h = Math.max(d.grid || 4, q[1] - s.y);
+          render();
+        } else if (s?.kind === 'image') {
+          // A picture keeps its proportions (Shift stretches it).
+          const w = Math.max(8, p[0] - s.x);
+          const h = Math.max(8, p[1] - s.y);
+          if (e.shiftKey) Object.assign(s, { w, h });
+          else Object.assign(s, { h: (s.h * w) / s.w, w });
           render();
         }
       } else if (drag.kind === 'bend') {
@@ -1021,20 +1031,20 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
     const netlistBtn = button(t('draw.netlist'), () => void exportNetlist(), { title: t('draw.netlistTitle') });
     const bomBtn = button(t('draw.bom'), () => void exportBom(), { title: t('draw.bomTitle') });
 
-    const dialog = h('dialog', { class: `dialog draw-dialog${options.full ? ' draw-full' : ''}`, 'aria-labelledby': 'draw-title' });
+    const dialog = h('dialog', { class: 'dialog draw-dialog', 'aria-labelledby': 'draw-title' });
     const library = h('aside', { class: 'draw-library', 'aria-label': t('draw.symbols') }, search, category, list);
     const side = h('aside', { class: 'draw-side' }, h('h3', {}, t('draw.objects')), objects);
-    // PDF-021: panels shown on demand, the page keeping the room.
+    // DRAW-022: panels over the drawing, shown on demand (hidden at first over a PDF page).
     const panelToggle = (panel: HTMLElement, label: string, text: string): HTMLButtonElement => {
-      panel.hidden = true;
+      panel.hidden = !!options.full;
       const b = button(label, () => {
         panel.hidden = !panel.hidden;
         b.setAttribute('aria-pressed', String(!panel.hidden));
       }, { text, title: label });
-      b.setAttribute('aria-pressed', 'false');
+      b.setAttribute('aria-pressed', String(!panel.hidden));
       return b;
     };
-    const panelButtons = options.full ? [panelToggle(library, t('draw.symbols'), '⌘'), panelToggle(side, t('draw.objects'), '☰')] : [];
+    const panelButtons = [panelToggle(library, t('draw.symbols'), '🔣'), panelToggle(side, t('draw.objects'), '☰')];
     const actions = h('div', { class: 'dialog-actions' }, button(t('common.cancel'), () => finish(null)), button(t('draw.done'), () => finish(d), { className: 'primary' }));
     const finish = (value: Drawing | null): void => {
       if (editing) closeText();
@@ -1042,73 +1052,77 @@ export function editDrawing(host: HTMLElement, initial?: Drawing, options: DrawO
       dialog.remove();
       resolve(value);
     };
-    dialog.append(
-      options.full ? h('div', { class: 'draw-head' }, h('h2', { id: 'draw-title' }, options.title ?? t('draw.title')), actions) : h('h2', { id: 'draw-title' }, options.title ?? t('draw.title')),
+    const toolbarEl = h(
+      'div',
+      { class: 'draw-toolbar', role: 'toolbar', 'aria-label': t('draw.tools') },
+      h('span', { class: 'draw-group' }, ...toolButtons),
+      h('span', { class: 'draw-group' }, undoBtn, redoBtn),
       h(
-        'div',
-        { class: 'draw-toolbar', role: 'toolbar', 'aria-label': t('draw.tools') },
-        h('span', { class: 'draw-group' }, ...toolButtons),
-        h('span', { class: 'draw-group' }, undoBtn, redoBtn),
-        h(
-          'span',
-          { class: 'draw-group' },
-          button(t('draw.delete'), del, { text: '🗑', title: `${t('draw.delete')} (Del)` }),
-          button(t('draw.duplicate'), dup, { text: '⧉', title: `${t('draw.duplicate')} (Ctrl+D)` }),
-          button(t('draw.rotate'), turn, { text: '⟳', title: `${t('draw.rotate')} (R)` }),
-          button(t('draw.mirror'), flip, { text: '⇋', title: `${t('draw.mirror')} (M)` }),
-          button(t('draw.front'), () => order(true), { text: '⬆', title: t('draw.front') }),
-          button(t('draw.back'), () => order(false), { text: '⬇', title: t('draw.back') }),
-          alignSelect,
-        ),
-        h(
-          'span',
-          { class: 'draw-group' },
-          button(t('draw.zoomOut'), () => setZoom(zoom / 1.25), { text: '−', title: t('draw.zoomOut') }),
-          zoomLabel,
-          button(t('draw.zoomIn'), () => setZoom(zoom * 1.25), { text: '+', title: t('draw.zoomIn') }),
-          h('label', {}, gridBox, ` ${t('draw.grid')}`),
-          h('label', {}, snapBox, ` ${t('draw.snap')}`),
-        ),
-        ...(panelButtons.length ? [h('span', { class: 'draw-group' }, ...panelButtons)] : []),
+        'span',
+        { class: 'draw-group' },
+        button(t('draw.delete'), del, { text: '🗑', title: `${t('draw.delete')} (Del)` }),
+        button(t('draw.duplicate'), dup, { text: '⧉', title: `${t('draw.duplicate')} (Ctrl+D)` }),
+        button(t('draw.rotate'), turn, { text: '⟳', title: `${t('draw.rotate')} (R)` }),
+        button(t('draw.mirror'), flip, { text: '⇋', title: `${t('draw.mirror')} (M)` }),
+        button(t('draw.front'), () => order(true), { text: '⬆', title: t('draw.front') }),
+        button(t('draw.back'), () => order(false), { text: '⬇', title: t('draw.back') }),
+        alignSelect,
       ),
       h(
-        'div',
-        { class: 'draw-props', role: 'group', 'aria-label': t('draw.props') },
-        h('label', {}, `${t('draw.stroke')} `, strokeInput),
-        h('label', {}, `${t('draw.fill')} `, fillInput),
-        h('label', {}, noFill, ` ${t('draw.noFill')}`),
-        h('label', {}, `${t('draw.width')} `, widthInput),
-        h('label', {}, `${t('draw.dash')} `, dashInput),
-        symbolProps,
-        lineProps,
-        textProps,
+        'span',
+        { class: 'draw-group' },
+        button(t('draw.zoomOut'), () => setZoom(zoom / 1.25), { text: '−', title: t('draw.zoomOut') }),
+        zoomLabel,
+        button(t('draw.zoomIn'), () => setZoom(zoom * 1.25), { text: '+', title: t('draw.zoomIn') }),
+        h('label', {}, gridBox, ` ${t('draw.grid')}`),
+        h('label', {}, snapBox, ` ${t('draw.snap')}`),
       ),
-      h(
-        'div',
-        { class: 'draw-body' },
-        library,
-        h('div', { class: 'draw-main' }, stage, status),
-        side,
-      ),
-      ...(options.full
-        ? []
-        : [
-            h(
-              'div',
-              { class: 'draw-footer' },
-              h('label', {}, `${t('draw.alt')} `, alt),
-              ...(options.fixedSize
-                ? []
-                : [h('label', {}, `${t('draw.widthPx')} `, widthSize), h('label', {}, `${t('draw.heightPx')} `, heightSize), button(t('draw.fit'), fit, { title: t('draw.fitTitle') })]),
-              button(t('draw.exportSvg'), exportSvg),
-              button(t('draw.exportPng'), () => void exportAsPng()),
-              button(t('draw.exportPdf'), () => void exportAsPdf(), { title: t('draw.exportPdfTitle') }),
-              netlistBtn,
-              bomBtn,
-            ),
-            actions,
-          ]),
+      ...(panelButtons.length ? [h('span', { class: 'draw-group' }, ...panelButtons)] : []),
     );
+    const propsEl = h(
+      'div',
+      { class: 'draw-props', role: 'group', 'aria-label': t('draw.props') },
+      h('label', {}, `${t('draw.stroke')} `, strokeInput),
+      h('label', {}, `${t('draw.fill')} `, fillInput),
+      h('label', {}, noFill, ` ${t('draw.noFill')}`),
+      h('label', {}, `${t('draw.width')} `, widthInput),
+      h('label', {}, `${t('draw.dash')} `, dashInput),
+      symbolProps,
+      lineProps,
+      textProps,
+    );
+    const title = h('h2', { id: 'draw-title' }, options.title ?? t('draw.title'));
+    const body = h('div', { class: 'draw-body' }, library, h('div', { class: 'draw-main' }, stage, status), side);
+    // DRAW-022: the drawing has the whole window, the tools over it.
+    immersive({
+      dialog,
+      title,
+      actions,
+      body,
+      scroller: stage,
+      rows: [
+        toolbarEl,
+        propsEl,
+        // A page of a PDF is not exported on its own.
+        ...(options.full
+          ? []
+          : [
+              h(
+                'div',
+                { class: 'draw-footer' },
+                h('label', {}, `${t('draw.alt')} `, alt),
+                ...(options.fixedSize
+                  ? []
+                  : [h('label', {}, `${t('draw.widthPx')} `, widthSize), h('label', {}, `${t('draw.heightPx')} `, heightSize), button(t('draw.fit'), fit, { title: t('draw.fitTitle') })]),
+                button(t('draw.exportSvg'), exportSvg),
+                button(t('draw.exportPng'), () => void exportAsPng()),
+                button(t('draw.exportPdf'), () => void exportAsPdf(), { title: t('draw.exportPdfTitle') }),
+                netlistBtn,
+                bomBtn,
+              ),
+            ]),
+      ],
+    });
     dialog.addEventListener('cancel', (e) => {
       e.preventDefault();
       if (!undo.length || window.confirm(t('draw.discard'))) finish(null);

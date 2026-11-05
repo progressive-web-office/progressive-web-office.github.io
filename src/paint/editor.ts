@@ -11,6 +11,7 @@
  */
 import { attachZoomPan, zoomAt } from '../app/zoom-pan';
 import { button, h } from '../app/dom';
+import { immersive } from '../app/immersive';
 import { t } from '../i18n';
 import { ORA_TYPE, readOra, writeOra, type OraLayer } from './ora';
 import { along, floodFill, hexToRgba, keepsAlpha, pixelAt, rectBetween, rgbaToHex } from './pixels';
@@ -1127,60 +1128,70 @@ export async function paintPicture(
 
     // --- the window -------------------------------------------------------------------
     const group = (label: string, ...kids: HTMLElement[]): HTMLElement => h('span', { class: 'draw-group', role: 'group', 'aria-label': label }, ...kids);
-    dialog.append(
-      h('h2', { id: 'paint-title' }, t('paint.title')),
-      h(
-        'div',
-        { class: 'draw-toolbar', role: 'toolbar', 'aria-label': t('paint.tools') },
-        group(t('paint.tools'), ...toolButtons),
-        group(t('common.undo'), undoBtn, redoBtn),
-        group(
-          t('paint.selection'),
-          button(t('paint.copy'), copy, { text: '⧉', title: `${t('paint.copy')} (Ctrl+C)` }),
-          button(t('paint.paste'), paste, { text: '📋', title: `${t('paint.paste')} (Ctrl+V)` }),
-          button(t('paint.deleteSelection'), deleteSelection, { text: '🗑', title: `${t('paint.deleteSelection')} (Del)` }),
-        ),
-        group(
-          t('paint.picture'),
-          button(t('paint.crop'), crop, { text: '✂', title: t('paint.cropTitle') }),
-          button(t('paint.rotateLeft'), () => rotate(-90), { text: '⟲', title: t('paint.rotateLeft') }),
-          button(t('paint.rotateRight'), () => rotate(90), { text: '⟳', title: t('paint.rotateRight') }),
-          button(t('paint.rotateAngle'), rotateBy, { text: '∠', title: t('paint.rotateAngle') }),
-          button(t('paint.flipH'), () => flip(true), { text: '⇋', title: t('paint.flipH') }),
-          button(t('paint.flipV'), () => flip(false), { text: '⇅', title: t('paint.flipV') }),
-          button(t('paint.backgroundSet'), () => void setBackground(), { text: '🖼', title: t('paint.backgroundSetTitle') }),
-          button(t('paint.grid'), drawGrid, { text: '▦', title: t('paint.gridTitle') }),
-        ),
-        group(t('draw.zoomIn'), button(t('draw.zoomOut'), () => setZoom(zoom / 1.25), { text: '−', title: t('draw.zoomOut') }), zoomLabel, button(t('draw.zoomIn'), () => setZoom(zoom * 1.25), { text: '+', title: t('draw.zoomIn') })),
-      ),
-      h(
-        'div',
-        { class: 'draw-props', role: 'group', 'aria-label': t('draw.props') },
-        h('label', {}, `${t('paint.color')} `, colorInput),
-        h('label', {}, `${t('paint.color2')} `, color2Input),
-        h('label', {}, `${t('paint.size')} `, sizeInput, sizeLabel),
-        h('label', {}, `${t('paint.opacity')} `, opacityInput, opacityLabel),
-        h('label', {}, filled, ` ${t('paint.filled')}`),
-        h('label', {}, `${t('paint.gradientKind')} `, gradientKind),
-        h('label', {}, `${t('draw.widthPx')} `, wInput),
-        h('label', {}, `${t('draw.heightPx')} `, hInput),
-      ),
-      h(
-        'div',
-        { class: 'paint-main' },
-        scroller,
-        h(
-          'aside',
-          { class: 'paint-layers-panel', 'aria-label': t('paint.layers') },
-          h('h3', {}, t('paint.layers')),
-          layerList,
-          h('label', { class: 'paint-layer-opacity' }, `${t('paint.layerOpacity')} `, layerOpacity, layerOpacityLabel),
-          h('div', { class: 'paint-layer-buttons' }, ...Object.values(layerButtons)),
-        ),
-      ),
-      status,
-      h('div', { class: 'dialog-actions' }, button(t('common.cancel'), () => finish(null)), button(t('draw.done'), () => void done(), { className: 'primary' })),
+    const layersPanel = h(
+      'aside',
+      { class: 'paint-layers-panel', 'aria-label': t('paint.layers') },
+      h('h3', {}, t('paint.layers')),
+      layerList,
+      h('label', { class: 'paint-layer-opacity' }, `${t('paint.layerOpacity')} `, layerOpacity, layerOpacityLabel),
+      h('div', { class: 'paint-layer-buttons' }, ...Object.values(layerButtons)),
     );
+    // DRAW-022: the layers float over the picture, shown on demand.
+    const layersToggle = button(
+      t('paint.layers'),
+      () => {
+        layersPanel.hidden = !layersPanel.hidden;
+        layersToggle.setAttribute('aria-pressed', String(!layersPanel.hidden));
+      },
+      { text: '☰', title: t('paint.layers') },
+    );
+    layersToggle.setAttribute('aria-pressed', 'true');
+    const toolbarEl = h(
+      'div',
+      { class: 'draw-toolbar', role: 'toolbar', 'aria-label': t('paint.tools') },
+      group(t('paint.tools'), ...toolButtons),
+      group(t('common.undo'), undoBtn, redoBtn),
+      group(
+        t('paint.selection'),
+        button(t('paint.copy'), copy, { text: '⧉', title: `${t('paint.copy')} (Ctrl+C)` }),
+        button(t('paint.paste'), paste, { text: '📋', title: `${t('paint.paste')} (Ctrl+V)` }),
+        button(t('paint.deleteSelection'), deleteSelection, { text: '🗑', title: `${t('paint.deleteSelection')} (Del)` }),
+      ),
+      group(
+        t('paint.picture'),
+        button(t('paint.crop'), crop, { text: '✂', title: t('paint.cropTitle') }),
+        button(t('paint.rotateLeft'), () => rotate(-90), { text: '⟲', title: t('paint.rotateLeft') }),
+        button(t('paint.rotateRight'), () => rotate(90), { text: '⟳', title: t('paint.rotateRight') }),
+        button(t('paint.rotateAngle'), rotateBy, { text: '∠', title: t('paint.rotateAngle') }),
+        button(t('paint.flipH'), () => flip(true), { text: '⇋', title: t('paint.flipH') }),
+        button(t('paint.flipV'), () => flip(false), { text: '⇅', title: t('paint.flipV') }),
+        button(t('paint.backgroundSet'), () => void setBackground(), { text: '🖼', title: t('paint.backgroundSetTitle') }),
+        button(t('paint.grid'), drawGrid, { text: '▦', title: t('paint.gridTitle') }),
+      ),
+      group(t('draw.zoomIn'), button(t('draw.zoomOut'), () => setZoom(zoom / 1.25), { text: '−', title: t('draw.zoomOut') }), zoomLabel, button(t('draw.zoomIn'), () => setZoom(zoom * 1.25), { text: '+', title: t('draw.zoomIn') })),
+      group(t('paint.layers'), layersToggle),
+    );
+    const propsEl = h(
+      'div',
+      { class: 'draw-props', role: 'group', 'aria-label': t('draw.props') },
+      h('label', {}, `${t('paint.color')} `, colorInput),
+      h('label', {}, `${t('paint.color2')} `, color2Input),
+      h('label', {}, `${t('paint.size')} `, sizeInput, sizeLabel),
+      h('label', {}, `${t('paint.opacity')} `, opacityInput, opacityLabel),
+      h('label', {}, filled, ` ${t('paint.filled')}`),
+      h('label', {}, `${t('paint.gradientKind')} `, gradientKind),
+      h('label', {}, `${t('draw.widthPx')} `, wInput),
+      h('label', {}, `${t('draw.heightPx')} `, hInput),
+    );
+    // DRAW-022: the picture has the whole window, the tools over it.
+    immersive({
+      dialog,
+      title: h('h2', { id: 'paint-title' }, t('paint.title')),
+      actions: h('div', { class: 'dialog-actions' }, button(t('common.cancel'), () => finish(null)), button(t('draw.done'), () => void done(), { className: 'primary' })),
+      rows: [toolbarEl, propsEl],
+      body: h('div', { class: 'paint-main' }, scroller, layersPanel, status),
+      scroller,
+    });
     dialog.addEventListener('cancel', (e) => {
       e.preventDefault();
       if (!changed || window.confirm(t('paint.discard'))) finish(null);

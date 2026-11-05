@@ -47,10 +47,12 @@ export interface TextShape extends Style { id: string; kind: 'text'; x: number; 
 export interface SymbolShape extends Style { id: string; kind: 'symbol'; sym: string; x: number; y: number; rot: 0 | 90 | 180 | 270; mirror?: boolean; ref?: string; value?: string }
 /** An imported SVG path, moved as a whole. */
 export interface PathShape extends Style { id: string; kind: 'path'; d: string; dx?: number; dy?: number }
+/** PDF-021: a picture (a signature…), a data URL, stretched over its box. */
+export interface ImageShape { id: string; kind: 'image'; x: number; y: number; w: number; h: number; href: string; alt?: string; opacity?: number }
 /** SVG markup kept as it was (groups, transforms, pictures…), moved as a whole. */
 export interface RawShape { id: string; kind: 'raw'; markup: string; dx?: number; dy?: number }
 
-export type Shape = RectShape | EllipseShape | LineShape | FreeShape | TextShape | SymbolShape | PathShape | RawShape;
+export type Shape = RectShape | EllipseShape | LineShape | FreeShape | TextShape | SymbolShape | PathShape | RawShape | ImageShape;
 
 export interface Drawing {
   width: number;
@@ -109,6 +111,7 @@ export function bbox(s: Shape): [number, number, number, number] | undefined {
   switch (s.kind) {
     case 'rect':
     case 'ellipse':
+    case 'image':
       return [s.x, s.y, s.x + s.w, s.y + s.h];
     case 'line':
     case 'free': {

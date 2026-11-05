@@ -24,6 +24,23 @@ lines, polygons, paths and texts become editable; what cannot be edited
 (groups with transforms, embedded pictures) is kept as it is and moves as a
 whole.
 
+## The whole window
+
+The drawing and painting editors take the whole window, as the other parts
+of the application do; the tools float over the drawing, which scrolls out
+from under them:
+
+- **▴** folds the tools into a small bar in the top right corner, leaving the
+  whole window to the drawing; **▾** brings them back;
+- **⛶** goes full screen, without the browser's own bars (<kbd>Escape</kbd>
+  leaves it);
+- **⌘ Commands** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>) opens the
+  command palette, with every tool and command of the editor — folded ones
+  too — found by typing their name;
+- in the drawing editor, **🔣** and **☰** show or hide the symbols and the
+  list of objects; in the painting editor, **☰** the layers. An open panel
+  does not hide the drawing: it scrolls beside it.
+
 ## Tools
 
 | Tool | Use |
@@ -198,6 +215,9 @@ use the painting editor:
   a picture → **Paint on the picture**;
 - **Templates and examples → Examples → Poster in layers**, to see layers at
   work.
+
+It takes the whole window, its tools folding away, with the command palette:
+see [The whole window](#the-whole-window).
 
 ![The painting editor: the poster in layers, its title picked on a vector layer, the layers panel on the right](/screenshots/painting-layers.png)
 

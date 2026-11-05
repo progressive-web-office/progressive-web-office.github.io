@@ -126,6 +126,38 @@ test('draws a schematic with symbols and wires, inserted in a document and edite
   expect(errors).toEqual([]);
 });
 
+test('drawing and painting have the whole window, their tools folded away, and the command palette (DRAW-022)', async ({ page }) => {
+  const errors = await openApp(page);
+  const viewport = page.viewportSize()!;
+  await page.getByRole('button', { name: 'New drawing or schematic' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Drawing' });
+  const whole = (await dialog.boundingBox())!;
+  expect([whole.x, whole.y, whole.width, whole.height]).toEqual([0, 0, viewport.width, viewport.height]);
+  // Folded: only a small bar is left over the drawing.
+  await dialog.getByRole('button', { name: 'Hide the tools' }).click();
+  await expect(dialog.getByRole('toolbar', { name: 'Drawing tools' })).toBeHidden();
+  expect((await dialog.locator('.draw-chrome').boundingBox())!.width).toBeLessThan(viewport.width / 2);
+  // The tools out of sight are commands of the palette.
+  await page.keyboard.press('Control+Shift+P');
+  const palette = page.getByRole('dialog', { name: 'Commands' });
+  await palette.getByRole('combobox').fill('Ellipse');
+  await palette.getByRole('combobox').press('Enter');
+  await expect(palette).toBeHidden();
+  await dialog.getByRole('button', { name: 'Show the tools' }).click();
+  await expect(dialog.getByRole('button', { name: 'Ellipse' })).toHaveAttribute('aria-pressed', 'true');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+
+  await page.getByRole('button', { name: 'New painting' }).click();
+  const paint = page.getByRole('dialog', { name: 'Painting' });
+  expect((await paint.boundingBox())!.width).toBe(viewport.width);
+  await paint.getByRole('button', { name: 'Commands', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Commands' })).toBeVisible();
+  await page.getByRole('dialog', { name: 'Commands' }).getByRole('combobox').fill('Eraser');
+  await page.getByRole('dialog', { name: 'Commands' }).getByRole('combobox').press('Enter');
+  await expect(paint.getByRole('button', { name: 'Eraser' })).toHaveAttribute('aria-pressed', 'true');
+  expect(errors).toEqual([]);
+});
+
 test('puts a drawing on a slide, edited again by a double click (DRAW-007)', async ({ page }) => {
   const errors = await openApp(page);
   await page.getByRole('button', { name: 'New presentation' }).click();

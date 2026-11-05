@@ -34,6 +34,20 @@ export interface VectorOps {
   faces: Face[];
   /** Graphics states by name: their opacity. */
   states: Record<string, number>;
+  /** Pictures (signatures…) by name, /Im1…, to embed. */
+  images: { name: string; bytes: Uint8Array; type: 'png' | 'jpeg' }[];
+}
+
+/** The bytes of a PNG or JPEG data URL; null for anything else. */
+export function dataUrlImage(href: string): { bytes: Uint8Array; type: 'png' | 'jpeg' } | null {
+  const m = /^data:image\/(png|jpe?g);base64,([A-Za-z0-9+/=\s]+)$/.exec(href);
+  if (!m) return null;
+  try {
+    const bin = atob(m[2]!.replace(/\s/g, ''));
+    return { bytes: Uint8Array.from(bin, (c) => c.charCodeAt(0)), type: m[1] === 'png' ? 'png' : 'jpeg' };
+  } catch {
+    return null;
+  }
 }
 
 const n = (v: number): string => {
@@ -359,6 +373,7 @@ export function drawingOps(d: Drawing, font: VectorFont): VectorOps | null {
   };
   const base: Paint = { stroke: 'none', fill: '#000000', width: 1, dash: 'none', cap: 'butt', join: 'miter', opacity: 1, color: '#000000', size: 16, anchor: 'start', weight: 'normal', slant: 'normal', decoration: 'none' };
   const faces = new Set<Face>();
+  const images: VectorOps['images'] = [];
 
   const paintPath = (geometry: string, p: Paint, fillable = true): void => {
     if (!geometry) return;
@@ -483,8 +498,21 @@ export function drawingOps(d: Drawing, font: VectorFont): VectorOps | null {
         run(el, p);
         break;
       }
+      case 'image': {
+        // PDF-021: a signature, a picture: drawn over its box, its top at y.
+        const image = dataUrlImage(el.getAttribute('href') ?? el.getAttributeNS('http://www.w3.org/1999/xlink', 'href') ?? '');
+        if (!image) {
+          ok = false;
+          break;
+        }
+        const name = `Im${images.length + 1}`;
+        images.push({ name, ...image });
+        const [x, y, w, h] = [num(el, 'x'), num(el, 'y'), num(el, 'width'), num(el, 'height')];
+        out.push('q', ...(p.opacity < 1 ? [state(p.opacity)] : []), `${n(w)} 0 0 ${n(-h)} ${n(x)} ${n(y + h)} cm`, `/${name} Do`, 'Q');
+        break;
+      }
       default:
-        // A picture, a gradient, foreign content…
+        // A gradient, foreign content…
         ok = false;
     }
     if (moved) out.push('Q');
@@ -492,7 +520,7 @@ export function drawingOps(d: Drawing, font: VectorFont): VectorOps | null {
   };
 
   for (const child of Array.from(root.children)) if (!walk(child, base)) return null;
-  return { ops: out.join('\n'), text, faces: [...faces], states };
+  return { ops: out.join('\n'), text, faces: [...faces], states, images };
 }
 
 function faceOf(p: Paint): Face {

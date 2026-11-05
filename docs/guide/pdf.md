@@ -67,8 +67,9 @@ PDF, from other readers too, are listed in the panel with their comments.
 **✏ Draw** opens the [drawing editor](./drawing) over the current page, the
 page shown underneath:
 
-- The editor takes the whole window, the page as wide as it allows; **⌘**
-  and **☰** show the symbols and the list of objects when needed.
+- The editor takes the whole window, the page as wide as it allows (see
+  [The whole window](./drawing#the-whole-window)); **🔣** and **☰** show the
+  symbols and the list of objects when needed.
 - The **text** tool is chosen: click where the text goes and type it.
   <kbd>Enter</kbd> starts a new line; <kbd>Escape</kbd> (or
   <kbd>Ctrl</kbd>+<kbd>Enter</kbd>, or a click elsewhere) is done. A double
@@ -81,6 +82,10 @@ page shown underneath:
 - **Arrows**, lines, rectangles, ellipses and freehand strokes point at,
   frame or underline what matters. A white rectangle without border hides
   what is under it.
+- The **signatures** and **texts** already put on the page (**✍ Sign**,
+  **T+ Text**) come into the drawing: they can be moved, resized (a
+  signature keeps its proportions; <kbd>Shift</kbd> stretches it) and
+  edited with the rest. **Cancel** leaves them on the page as they were.
 - **Done** puts the drawing on the page; **✏** at the top right of the page
   opens it again.
 

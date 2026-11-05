@@ -155,6 +155,47 @@ test('adds text boxes and arrows with the drawing editor, saved as vectors and e
   expect(errors).toEqual([]);
 });
 
+test('a signature and a text put on the page come into its drawing, moved and saved with it (PDF-021)', async ({ page }) => {
+  const errors = await openApp(page);
+  await openFile(page, 'stamped.pdf', await samplePdf(), 'application/pdf');
+  await page.getByRole('button', { name: 'Add signature' }).click();
+  const pad = page.getByLabel('Signature drawing area');
+  const box = (await pad.boundingBox())!;
+  await page.mouse.move(box.x + 30, box.y + 60);
+  await page.mouse.down();
+  for (let i = 1; i <= 12; i++) await page.mouse.move(box.x + 30 + i * 20, box.y + 60 + Math.sin(i) * 25);
+  await page.mouse.up();
+  await page.getByRole('button', { name: 'Place signature' }).click();
+  page.once('dialog', (d) => void d.accept('Paid in full'));
+  await page.getByRole('button', { name: 'Add text' }).click();
+  await expect(page.locator('.pdf-stamp')).toHaveCount(2);
+
+  await page.getByRole('button', { name: 'Draw', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Drawing on page 1' });
+  // Both are objects of the drawing, the signature a picture.
+  await expect(dialog.locator('.draw-objects button')).toHaveText(['Picture: Signature', 'Text: Paid in full']);
+  await expect(dialog.locator('.draw-content image')).toHaveCount(1);
+  // Cancelled: they stay on the page as they were.
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.locator('.pdf-stamp')).toHaveCount(2);
+
+  await page.getByRole('button', { name: 'Draw', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Done' }).click();
+  await expect(page.locator('.pdf-stamp')).toHaveCount(0);
+  await expect(page.locator('.pdf-drawing-layer image')).toHaveCount(1);
+  await expect(page.locator('.pdf-drawing-layer text')).toHaveText('Paid in full');
+
+  // Saved as one vector drawing: the signature an image in it, the text text.
+  const doc = await PDFDocument.load(await download(page));
+  const annots = (doc.getPage(0).node.Annots()?.asArray() ?? []).map((ref) => doc.context.lookup(ref) as import('@pdfme/pdf-lib').PDFDict).filter((a) => String(a.get(PDFName.of('Subtype'))) === '/Stamp');
+  expect(annots).toHaveLength(1);
+  const ap = (annots[0]!.lookup(PDFName.of('AP')) as import('@pdfme/pdf-lib').PDFDict).lookup(PDFName.of('N')) as import('@pdfme/pdf-lib').PDFRawStream;
+  const ops = new TextDecoder().decode(decodePDFRawStream(ap).decode());
+  expect(ops).toContain('/Im1 Do');
+  expect(ops).toContain('/F1 12 Tf');
+  expect(errors).toEqual([]);
+});
+
 test('finds text in the pages (PDF-017)', async ({ page }) => {
   const errors = await openApp(page);
   await openFile(page, 'sample.pdf', await samplePdf(), 'application/pdf');

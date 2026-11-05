@@ -146,6 +146,8 @@ export function shapeSvg(s: Shape): string {
       return symbolSvg(s);
     case 'path':
       return `<path${id} d="${esc(s.d)}"${styleAttrs(s)}${s.dx || s.dy ? ` transform="translate(${n(s.dx ?? 0)} ${n(s.dy ?? 0)})"` : ''}/>`;
+    case 'image':
+      return `<image${id} x="${n(s.x)}" y="${n(s.y)}" width="${n(s.w)}" height="${n(s.h)}" href="${esc(s.href)}" preserveAspectRatio="none"${s.opacity !== undefined && s.opacity < 1 ? ` opacity="${n(s.opacity)}"` : ''}${s.alt ? ` aria-label="${esc(s.alt)}"` : ''}/>`;
     case 'raw':
       return `<g data-id="${esc(s.id)}"${s.dx || s.dy ? ` transform="translate(${n(s.dx ?? 0)} ${n(s.dy ?? 0)})"` : ''}>${s.markup}</g>`;
   }

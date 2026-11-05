@@ -295,6 +295,10 @@ async function writeDrawings(doc: PDFDocument, drawings: PdfDrawing[], flatten: 
     if (vector) {
       ops = vector.ops;
       if (vector.text) resources.Font = Object.fromEntries(vector.faces.map((f) => [FACE_FONT[f], fontOf(f).ref]));
+      if (vector.images.length) {
+        resources.XObject = {};
+        for (const im of vector.images) resources.XObject[im.name] = (im.type === 'png' ? await doc.embedPng(im.bytes) : await doc.embedJpg(im.bytes)).ref;
+      }
       const states = Object.entries(vector.states);
       if (states.length) resources.ExtGState = Object.fromEntries(states.map(([name, a]) => [name, { Type: 'ExtGState', ca: a, CA: a }]));
     } else if (dr.png) {
