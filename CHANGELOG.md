@@ -57,6 +57,8 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
 
 ### Changed
 
+- The PDF viewer's text button reads *T Text*, as in the other editors
+  (MARK-003).
 - The repository follows the [REUSE](https://reuse.software/) convention:
   `REUSE.toml` gives the copyright and licence of every file, including the
   third-party Python wheels (MIT, BSD-3-Clause), and `LICENSES/` holds the

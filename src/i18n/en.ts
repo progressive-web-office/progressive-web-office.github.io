@@ -469,7 +469,7 @@ export const en = {
   'pdf.signText': '✍ Sign',
   'pdf.signTitle': 'Draw or import a signature and place it on the page',
   'pdf.addText': 'Add text',
-  'pdf.addTextText': 'T+ Text',
+  'pdf.addTextText': 'T Text',
   'pdf.addTextTitle': 'Add text (e.g. a date or a name) on the page',
   'pdf.textPrompt': 'Text to add on the page',
   'pdf.saveFlattened': 'Flattened PDF – fields locked (.pdf)',
