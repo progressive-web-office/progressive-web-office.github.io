@@ -42,7 +42,7 @@ describe('FOLDER-027 daily notes', () => {
   it('fills the template of a new daily note', () => {
     expect(fillTemplate('---\ndate: {{date:YYYY-MM-DD}}\n---\n# {{title}}\n\nAt {{time}}', day, '2026-10-04', DEFAULT_DAILY)).toMatch(/^---\ndate: 2026-10-04\n---\n# 2026-10-04\n\nAt \d\d:\d\d$/);
     // Without a template: the properties built in, the day and the year filled.
-    const text = dailyText(day, DEFAULT_DAILY, undefined);
+    const text = dailyText(day, DEFAULT_DAILY, undefined, 'en'); // the language pinned: the default follows the machine's
     expect(text).toMatch(/^---\ndate: 2026-10-04\ntimestamp: "2026-10-04T\d\d:\d\d"\nyear: "\[\[2026\]\]"\nMOC:\ntype: "\[\[Daily note\]\]"\ntitle:\ndescription:\ntags:\n {2}- "#daily"\nsee also:\npreviously:\nevents:\nreferences:\nsubsequently:\n---\n\n# Sunday, October 4, 2026\n\n$/);
     // The title: the date in the words of the language and region, or by a format.
     expect(dailyText(day, { ...DEFAULT_DAILY, heading: 'long' }, '# {{heading}}', 'fr')).toBe('# 4 octobre 2026');

@@ -88,6 +88,20 @@ test('draws a schematic with symbols and wires, inserted in a document and edite
   const bom = page.waitForEvent('download');
   await dialog.getByRole('button', { name: 'Bill of materials' }).click();
   expect((await import('node:fs')).readFileSync((await (await bom).path())!, 'utf8')).toContain('1,R1,Resistor,4.7 kΩ');
+  // DRAW-021: the schematic as a PDF page, in vectors, its text searchable (Ω from the Symbol font).
+  const pdf = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: 'Download PDF' }).click();
+  const pdfFile = await pdf;
+  expect(pdfFile.suggestedFilename()).toBe('drawing.pdf');
+  const { PDFDocument, PDFName, decodePDFRawStream } = await import('@pdfme/pdf-lib');
+  type Dict = import('@pdfme/pdf-lib').PDFDict;
+  const pdfDoc = await PDFDocument.load(new Uint8Array((await import('node:fs')).readFileSync((await pdfFile.path())!)));
+  expect(pdfDoc.getPageCount()).toBe(1);
+  const xobjects = pdfDoc.getPage(0).node.Resources()!.lookup(PDFName.of('XObject')) as Dict;
+  const form = xobjects.lookup(xobjects.keys()[0]!) as import('@pdfme/pdf-lib').PDFRawStream;
+  const ops = new TextDecoder().decode(decodePDFRawStream(form).decode());
+  expect(ops).toContain('/F5 ');
+  expect(ops).not.toContain('/Im1');
   await dialog.getByLabel('Description').fill('An RC circuit');
   await dialog.getByRole('button', { name: 'Done' }).click();
   await expect(dialog).toBeHidden();
@@ -109,6 +123,38 @@ test('draws a schematic with symbols and wires, inserted in a document and edite
   const docx = unzipSync(new Uint8Array((await saveAs(page, 'Word document (.docx)')).data));
   expect(Object.keys(docx).filter((p) => p.startsWith('word/media/')).sort()).toEqual(['word/media/image1.png', 'word/media/image1.svg']);
   expect(docx['word/media/image1.png']!.length).toBeGreaterThan(1000);
+  expect(errors).toEqual([]);
+});
+
+test('drawing and painting have the whole window, their tools folded away, and the command palette (DRAW-022)', async ({ page }) => {
+  const errors = await openApp(page);
+  const viewport = page.viewportSize()!;
+  await page.getByRole('button', { name: 'New drawing or schematic' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Drawing' });
+  const whole = (await dialog.boundingBox())!;
+  expect([whole.x, whole.y, whole.width, whole.height]).toEqual([0, 0, viewport.width, viewport.height]);
+  // Folded: only a small bar is left over the drawing.
+  await dialog.getByRole('button', { name: 'Hide the tools' }).click();
+  await expect(dialog.getByRole('toolbar', { name: 'Drawing tools' })).toBeHidden();
+  expect((await dialog.locator('.draw-chrome').boundingBox())!.width).toBeLessThan(viewport.width / 2);
+  // The tools out of sight are commands of the palette.
+  await page.keyboard.press('Control+Shift+P');
+  const palette = page.getByRole('dialog', { name: 'Commands' });
+  await palette.getByRole('combobox').fill('Ellipse');
+  await palette.getByRole('combobox').press('Enter');
+  await expect(palette).toBeHidden();
+  await dialog.getByRole('button', { name: 'Show the tools' }).click();
+  await expect(dialog.getByRole('button', { name: 'Ellipse' })).toHaveAttribute('aria-pressed', 'true');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+
+  await page.getByRole('button', { name: 'New painting' }).click();
+  const paint = page.getByRole('dialog', { name: 'Painting' });
+  expect((await paint.boundingBox())!.width).toBe(viewport.width);
+  await paint.getByRole('button', { name: 'Commands', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Commands' })).toBeVisible();
+  await page.getByRole('dialog', { name: 'Commands' }).getByRole('combobox').fill('Eraser');
+  await page.getByRole('dialog', { name: 'Commands' }).getByRole('combobox').press('Enter');
+  await expect(paint.getByRole('button', { name: 'Eraser' })).toHaveAttribute('aria-pressed', 'true');
   expect(errors).toEqual([]);
 });
 

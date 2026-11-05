@@ -7,6 +7,7 @@ import {
   PDFDict,
   PDFDocument,
   PDFDropdown,
+  PDFFont,
   PDFHexString,
   PDFName,
   PDFOptionList,
@@ -24,7 +25,7 @@ import {
 } from '@pdfme/pdf-lib';
 import { pdfDate, writeAnnotations, type PdfNote } from './annotations';
 import type { Drawing } from '../draw/model';
-import { apply, drawingOps, drawingText } from './vector';
+import { apply, drawingFaces, drawingOps, drawingText, FACE_FONT, type Face } from './vector';
 import { formatActions, parseFormatScripts, type FieldFormat } from './field-format';
 
 /**
@@ -251,20 +252,38 @@ function takeDrawings(doc: PDFDocument): { page: number; drawing: Drawing }[] {
   return found;
 }
 
+/**
+ * DRAW-021: a drawing (a schematic…) as a PDF of one page its size, drawn
+ * as vectors — text kept as text — or as `png` when given (what the
+ * standard fonts cannot show).
+ */
+export async function drawingPdf(d: Drawing, png?: Uint8Array): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  doc.addPage([d.width, d.height]);
+  if (d.alt) doc.setTitle(d.alt);
+  doc.setCreator('Progressive Web Office');
+  await writeDrawings(doc, [{ page: 0, drawing: d, matrix: [1, 0, 0, -1, 0, d.height], ...(png ? { png } : {}) }], true);
+  return doc.save();
+}
+
 /** PDF-021: the drawings written as Form XObjects: annotations, or part of the pages when flattened. */
 async function writeDrawings(doc: PDFDocument, drawings: PdfDrawing[], flatten: boolean): Promise<void> {
   const ctx = doc.context;
   const pages = doc.getPages();
-  const font = await doc.embedFont(StandardFonts.Helvetica);
+  // DRAW-001: the faces the texts need, embedded once for all the drawings.
+  const STANDARD: Record<Face, StandardFonts> = { R: StandardFonts.Helvetica, B: StandardFonts.HelveticaBold, I: StandardFonts.HelveticaOblique, BI: StandardFonts.HelveticaBoldOblique, S: StandardFonts.Symbol };
+  const fonts = new Map<Face, PDFFont>();
+  for (const face of new Set(drawings.flatMap((dr) => drawingFaces(dr.drawing)))) fonts.set(face, await doc.embedFont(STANDARD[face]));
+  const fontOf = (face: Face = 'R'): PDFFont => fonts.get(face) ?? fonts.get('R')!;
   const vectorFont = {
-    encode: (text: string): string | null => {
+    encode: (text: string, face?: Face): string | null => {
       try {
-        return font.encodeText(text).toString();
+        return fontOf(face).encodeText(text).toString();
       } catch {
         return null;
       }
     },
-    width: (text: string, size: number): number => font.widthOfTextAtSize(text, size),
+    width: (text: string, size: number, face?: Face): number => fontOf(face).widthOfTextAtSize(text, size),
   };
   for (const [i, dr] of drawings.entries()) {
     const page = pages[dr.page];
@@ -275,7 +294,11 @@ async function writeDrawings(doc: PDFDocument, drawings: PdfDrawing[], flatten: 
     const resources: { Font?: Record<string, PDFRef>; ExtGState?: Record<string, { Type: string; ca: number; CA: number }>; XObject?: Record<string, PDFRef> } = {};
     if (vector) {
       ops = vector.ops;
-      if (vector.text) resources.Font = { F1: font.ref };
+      if (vector.text) resources.Font = Object.fromEntries(vector.faces.map((f) => [FACE_FONT[f], fontOf(f).ref]));
+      if (vector.images.length) {
+        resources.XObject = {};
+        for (const im of vector.images) resources.XObject[im.name] = (im.type === 'png' ? await doc.embedPng(im.bytes) : await doc.embedJpg(im.bytes)).ref;
+      }
       const states = Object.entries(vector.states);
       if (states.length) resources.ExtGState = Object.fromEntries(states.map(([name, a]) => [name, { Type: 'ExtGState', ca: a, CA: a }]));
     } else if (dr.png) {

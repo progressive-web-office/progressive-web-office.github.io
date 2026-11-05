@@ -67,14 +67,25 @@ PDF, from other readers too, are listed in the panel with their comments.
 **✏ Draw** opens the [drawing editor](./drawing) over the current page, the
 page shown underneath:
 
+- The editor takes the whole window, the page as wide as it allows (see
+  [The whole window](./drawing#the-whole-window)); **🔣** and **☰** show the
+  symbols and the list of objects when needed.
 - The **text** tool is chosen: click where the text goes and type it.
   <kbd>Enter</kbd> starts a new line; <kbd>Escape</kbd> (or
-  <kbd>Ctrl</kbd>+<kbd>Enter</kbd>, or a click elsewhere) is done. Its
-  **Size** and colour (the line colour) are in the bar above the drawing. A
-  double click on a text edits it again.
+  <kbd>Ctrl</kbd>+<kbd>Enter</kbd>, or a click elsewhere) is done. A double
+  click on a text edits it again.
+- **Size**, **B**, **I**, **U** and **Colour** apply to the part of the text
+  selected while typing — one word in bold, a larger first line — or to the
+  whole text when it is selected with the arrow tool (see
+  [Formatting text](./drawing#formatting-text)). Bold and italic are written
+  with Helvetica Bold and Oblique.
 - **Arrows**, lines, rectangles, ellipses and freehand strokes point at,
   frame or underline what matters. A white rectangle without border hides
   what is under it.
+- The **signatures** and **texts** already put on the page (**✍ Sign**,
+  **T+ Text**) come into the drawing: they can be moved, resized (a
+  signature keeps its proportions; <kbd>Shift</kbd> stretches it) and
+  edited with the rest. **Cancel** leaves them on the page as they were.
 - **Done** puts the drawing on the page; **✏** at the top right of the page
   opens it again.
 

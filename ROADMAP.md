@@ -370,6 +370,8 @@ any other tool. Planned, the most useful first:
   a PNG version for DOCX and LaTeX (DRAW-007); next: PNG version in PPTX
 - ✅ Bitmap painting (DRAW-008): pencil, brush, eraser, fill, shapes, text,
   selection, canvas size — for a new picture or any picture
+- ✅ Drawing and painting editors in the whole window, tools folding away,
+  full screen, with the command palette (DRAW-022)
 - OpenDocument drawings (.odg), draw.io diagrams (DRAW-010)
 - ✅ Caption images easily: a caption and alt text when inserting or pasting
   a picture (IMG-003), and an accessibility check (DOC-030)
@@ -401,7 +403,10 @@ any other tool. Planned, the most useful first:
   basic PAdES)
 - ✅ Text search in PDF (PDF-017)
 - ✅ Text boxes, arrows and shapes drawn on a PDF page with the vector drawing
-  editor, saved as vector annotations editable again (PDF-021); next: the
+  editor, saved as vector annotations editable again (PDF-021), with bold,
+  italic, sizes and colours on parts of a text (DRAW-020); drawings and
+  schematics downloaded as vector PDF (DRAW-021); signatures and texts of the
+  page brought into the drawing; next: the
   PDF's own text edited in place, more fonts for other scripts
 
 ### Files and fidelity

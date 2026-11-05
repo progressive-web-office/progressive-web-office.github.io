@@ -491,7 +491,15 @@ textarea.pdf-field { resize: none; }
 .draw-symbol:hover, .draw-symbol:focus-visible { border-color: var(--accent, #2563eb); }
 .draw-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .draw-scroll { position: relative; flex: 1; overflow: auto; background: #e5e7eb; border-radius: 6px; padding: 12px; }
-.draw-text-editor { position: absolute; z-index: 2; margin: 0; padding: 2px; border: 1px dashed var(--accent, #2563eb); background: rgba(255, 255, 255, 0.85); font-family: sans-serif; line-height: 1.2; resize: none; overflow: hidden; white-space: pre; min-width: 3em; }
+.draw-text-editor { position: absolute; z-index: 2; margin: 0; padding: 2px; border: 1px dashed var(--accent, #2563eb); background: rgba(255, 255, 255, 0.85); font-family: sans-serif; line-height: 1.2; white-space: pre; min-width: 3em; min-height: 1.2em; outline: none; }
+.draw-text-editor[hidden] { display: none; }
+.draw-look-group { display: inline-flex; gap: 4px; align-items: center; }
+.draw-look-group[hidden] { display: none; }
+.draw-look { min-width: 2em; }
+.draw-bold { font-weight: bold; }
+.draw-italic { font-style: italic; }
+.draw-underline { text-decoration: underline; }
+.draw-look[aria-pressed="true"] { background: var(--accent, #2563eb); color: #fff; }
 .draw-stage { display: block; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); touch-action: none; cursor: crosshair; color: #000; }
 .draw-stage[data-tool="select"] { cursor: default; }
 .draw-stage:focus-visible { outline: 2px solid var(--accent, #2563eb); outline-offset: 2px; }
@@ -506,6 +514,37 @@ textarea.pdf-field { resize: none; }
 .draw-objects button[aria-pressed="true"] { background: var(--accent, #2563eb); color: #fff; }
 .draw-size { width: 5em; }
 .draw-alt { width: 18em; }
+/* PDF-021: the whole window for the page. */
+/* DRAW-022: the drawing has the whole window, the tools float over it. */
+.dialog.draw-full { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; margin: 0; border: 0; border-radius: 0; padding: 0; overflow: hidden; }
+.dialog.draw-full[open] { display: block; }
+.draw-full .draw-body { position: absolute; inset: 0; display: block; }
+.draw-full .draw-main { position: absolute; inset: 0; }
+.draw-full .draw-scroll { position: absolute; inset: 0; border-radius: 0; padding: calc(var(--draw-chrome, 0px) + 12px) 12px 12px; }
+.draw-chrome { position: absolute; z-index: 4; top: 0; left: 0; right: 0; display: flex; flex-direction: column; gap: 4px; padding: 6px 10px; background: color-mix(in srgb, var(--surface, #fff) 92%, transparent); backdrop-filter: blur(6px); box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18); }
+.draw-head { display: flex; align-items: center; gap: 8px; }
+.draw-head h2 { flex: 1; margin: 0; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.draw-head .dialog-actions { margin: 0; }
+/* Folded: a small bar in a corner, nothing over the drawing but it. */
+.draw-chrome.folded { left: auto; top: 8px; right: 8px; border-radius: 8px; padding: 4px 6px; }
+.draw-chrome.folded > :not(.draw-head), .draw-chrome.folded h2 { display: none; }
+.draw-full .draw-library, .draw-full .draw-side { position: absolute; z-index: 3; top: calc(var(--draw-chrome, 0px) + 8px); bottom: 8px; padding: 6px; background: var(--surface, #fff); border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
+.draw-full .draw-library { left: 8px; width: 220px; }
+.draw-full .draw-side { right: 8px; width: 180px; }
+.draw-full .draw-library[hidden], .draw-full .draw-side[hidden] { display: none; }
+.draw-full .draw-status { position: absolute; z-index: 2; left: 8px; bottom: 4px; margin: 0; padding: 0 6px; border-radius: 4px; background: color-mix(in srgb, var(--surface, #fff) 85%, transparent); pointer-events: none; }
+.draw-full .draw-status:empty { display: none; }
+/* An open panel does not hide the drawing: it scrolls beside it. */
+.draw-full .draw-body:has(> .draw-library:not([hidden])) .draw-scroll { padding-left: 240px; }
+.draw-full .draw-body:has(> .draw-side:not([hidden])) .draw-scroll { padding-right: 200px; }
+.draw-full .paint-main:has(> .paint-layers-panel:not([hidden])) .paint-scroll { padding-right: 250px; }
+/* DRAW-022: the painting editor the same way, its layers floating at the right. */
+.draw-full .paint-main { position: absolute; inset: 0; display: block; }
+.draw-full .paint-scroll { position: absolute; inset: 0; border-radius: 0; padding: calc(var(--draw-chrome, 0px) + 12px) 12px 12px; }
+.draw-full .paint-layers-panel { position: absolute; z-index: 3; top: calc(var(--draw-chrome, 0px) + 8px); right: 8px; max-height: calc(100% - var(--draw-chrome, 0px) - 16px); width: 230px; padding: 8px; border: 0; background: var(--surface, #fff); border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
+.draw-full .paint-layers-panel[hidden] { display: none; }
+.draw-full .paint-status { position: absolute; z-index: 2; left: 8px; bottom: 4px; padding: 0 6px; border-radius: 4px; background: color-mix(in srgb, var(--surface, #fff) 85%, transparent); pointer-events: none; }
+.draw-full .paint-status:empty { display: none; }
 .draw-zoom { min-width: 3.5em; text-align: center; font-variant-numeric: tabular-nums; }
 .paint-dialog { width: min(98vw, 1200px); max-width: none; height: min(96vh, 900px); display: none; flex-direction: column; gap: 6px; }
 .paint-dialog[open] { display: flex; }
@@ -536,7 +575,7 @@ textarea.pdf-field { resize: none; }
 .paint-layer-opacity { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; flex-wrap: wrap; }
 .paint-layer-buttons { display: flex; flex-wrap: wrap; gap: 4px; }
 .paint-layer-buttons button { padding: 2px 6px; }
-@media (max-width: 700px) { .paint-main { flex-direction: column; } .paint-layers-panel { width: auto; border-left: none; max-height: 30vh; } }
+@media (max-width: 700px) { .paint-main { flex-direction: column; } .paint-layers-panel { width: auto; border-left: none; max-height: 30vh; } .draw-full .paint-layers-panel { width: min(230px, 70vw); max-height: 40vh; } }
 /* DOC-050: a field changed. */
 .field-dialog label { display: block; margin: 6px 0; }
 .field-when { border: 1px solid var(--border); border-radius: 6px; margin: 8px 0; }
@@ -548,6 +587,7 @@ textarea.pdf-field { resize: none; }
   .draw-library { max-height: 9rem; }
   .draw-symbols { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); }
   .draw-side { max-height: 6rem; }
+  .draw-full .draw-library, .draw-full .draw-side { max-height: none; width: min(220px, 70vw); }
 }
 
 /* Presentations */
@@ -2065,3 +2105,5 @@ button[data-icon]:not(.card):not(.template-card):not(.template-tab):not(.start-l
   .vault-row { grid-template-columns: 1fr auto auto auto; }
   .vault-label { grid-column: 1 / -1; }
 }
+/* DRAW-022: the command palette of a full-window editor. */
+.draw-palette { font-weight: 600; color: var(--accent); border-color: var(--accent) !important; white-space: nowrap; }

@@ -58,7 +58,11 @@ export function collectCommands(root: HTMLElement): PaletteCommand[] {
   const seen = new Set<string>();
   // Shown, or in a folded menu of a shown toolbar (UI-022).
   const visible = (el: HTMLElement): boolean => {
-    if (el.closest('dialog, .palette, .context-menu')) return false;
+    // In a window, unless the commands are those of that window (an editor taking the whole window, DRAW-022).
+    const shut = el.closest('dialog, .palette, .context-menu');
+    if (shut && shut !== root) return false;
+    // The tools folded out of sight (DRAW-022) stay at hand here.
+    if (el.closest('.draw-chrome.folded')) return !el.closest('[hidden]');
     const menu = el.closest<HTMLElement>('.tool-group-panel');
     if (menu) return !menu.parentElement?.closest('[hidden]') && visible(menu.parentElement!.querySelector<HTMLElement>('.tool-group-toggle') ?? menu.parentElement!);
     return !el.closest('[hidden]') && (el.offsetParent !== null || el.getClientRects().length > 0);

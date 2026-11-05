@@ -2882,9 +2882,21 @@ export class App {
   }
 
   async openPalette(): Promise<void> {
-    if (this.paletteOpen || this.root.querySelector('dialog[open]')) return;
+    // DRAW-022: an editor that has the whole window (drawing, painting) has its own commands, like any other.
+    const editors = Array.from(this.root.querySelectorAll<HTMLDialogElement>('dialog.draw-full[open]'));
+    const editor = editors[editors.length - 1];
+    const others = Array.from(this.root.querySelectorAll('dialog[open]')).filter((d) => d !== editor && !editor?.contains(d));
+    if (this.paletteOpen || others.length || (editor && editor.querySelector('dialog[open]'))) return;
     this.paletteOpen = true;
     const { collectCommands, openPalette } = await import('./palette');
+    if (editor) {
+      try {
+        await openPalette(editor, collectCommands(editor));
+      } finally {
+        this.paletteOpen = false;
+      }
+      return;
+    }
     try {
       const shown = collectCommands(this.root);
       // UI-018: the view's own commands, such as the review mode, even when no button shows them.
@@ -3147,6 +3159,8 @@ export class App {
       if (isFolderDrop(drop)) void this.openDroppedFolder(drop);
       else void this.openFile(file);
     });
+    // DRAW-022: the ⌘ button of an editor taking the whole window.
+    window.addEventListener('pwo:palette', () => void this.openPalette());
     window.addEventListener('keydown', (e) => {
       if (!(e.ctrlKey || e.metaKey)) return;
       const key = e.key.toLowerCase();

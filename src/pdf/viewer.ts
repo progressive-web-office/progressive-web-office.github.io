@@ -11,7 +11,7 @@ import type { PDFDocumentProxy, PDFPageProxy, PageViewport } from 'pdfjs-dist';
 import { button, h } from '../app/dom';
 import type { EditorView, SaveVariant, ViewContext } from '../app/views';
 import { applyEdits, NEW_FIELD_KINDS, type FieldSettings, type NewField, type NewFieldKind, type PdfDrawing, type PdfEdits, inspectPdf, type FormField, type PdfInfo, type Stamp } from './forms';
-import type { Drawing } from '../draw/model';
+import type { Drawing, Shape } from '../draw/model';
 import { drawingBody } from '../draw/svg';
 import { drawingOps, invert, WIN_ANSI } from './vector';
 import { checkValue, inputPattern } from './field-format';
@@ -1260,15 +1260,25 @@ export class PdfViewer implements EditorView {
       url = canvas.toDataURL('image/png');
     }
     const existing = this.drawings.find((x) => x.page === index);
-    const initial: Drawing = existing?.drawing ?? { width: viewport.width, height: viewport.height, grid: 0, showGrid: false, shapes: [] };
+    const initial: Drawing = existing ? structuredClone(existing.drawing) : { width: viewport.width, height: viewport.height, grid: 0, showGrid: false, shapes: [] };
+    // The signatures and texts put on the page come into the drawing, to be moved and edited with the rest.
+    const taken = this.stamps.filter((s) => s.page === index);
+    initial.shapes.push(...taken.map((s, i) => stampShape(s, viewport, `stamp${Date.now().toString(36)}${i}`)));
     const { editDrawing } = await import('../draw/editor');
     const result = await editDrawing(this.element, initial, {
       ...(url ? { background: url } : {}),
       title: t('pdf.drawDialog', { n: index + 1 }),
       fixedSize: true,
-      tool: existing?.drawing.shapes.length ? 'select' : 'text',
+      full: true,
+      tool: initial.shapes.length ? 'select' : 'text',
     });
+    // Cancelled: the signatures and texts stay as they were.
     if (!result) return;
+    if (taken.length) {
+      this.stamps = this.stamps.filter((s) => !taken.includes(s));
+      const shell = this.pages[index];
+      if (shell) this.refreshStamps(shell);
+    }
     // The page's size, whatever was done.
     Object.assign(result, { width: viewport.width, height: viewport.height });
     this.drawings = this.drawings.filter((x) => x.page !== index);
@@ -1339,4 +1349,26 @@ function fieldFromSettings(s: FieldSettings): Partial<FormField> {
     editable: !!s.editable,
     sorted: !!s.sorted,
   };
+}
+
+/**
+ * PDF-021: a signature or a text put on a page, as a shape of the page's
+ * drawing — the drawing's space is the page's viewport at scale 1.
+ */
+export function stampShape(stamp: Stamp, viewport: { convertToViewportPoint(x: number, y: number): number[] }, id: string): Shape {
+  const at = (x: number, y: number): [number, number] => viewport.convertToViewportPoint(x, y) as [number, number];
+  if (stamp.kind === 'image') {
+    const [ax, ay] = at(stamp.x, stamp.y + stamp.height);
+    const [bx, by] = at(stamp.x + stamp.width, stamp.y);
+    return { id, kind: 'image', x: Math.min(ax, bx), y: Math.min(ay, by), w: Math.abs(bx - ax), h: Math.abs(by - ay), href: `data:image/png;base64,${base64(stamp.png)}`, alt: t('pdf.signature') };
+  }
+  // Written with its baseline a fifth of its height above its bottom.
+  const [x, y] = at(stamp.x, stamp.y + stamp.height * 0.2);
+  return { id, kind: 'text', x, y, text: stamp.text, size: stamp.size, fill: '#000000' };
+}
+
+function base64(bytes: Uint8Array): string {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
 }

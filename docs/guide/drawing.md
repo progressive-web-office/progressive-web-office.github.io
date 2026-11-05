@@ -24,6 +24,23 @@ lines, polygons, paths and texts become editable; what cannot be edited
 (groups with transforms, embedded pictures) is kept as it is and moves as a
 whole.
 
+## The whole window
+
+The drawing and painting editors take the whole window, as the other parts
+of the application do; the tools float over the drawing, which scrolls out
+from under them:
+
+- **▴** folds the tools into a small bar in the top right corner, leaving the
+  whole window to the drawing; **▾** brings them back;
+- **⛶** goes full screen, without the browser's own bars (<kbd>Escape</kbd>
+  leaves it);
+- **⌘ Commands** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>) opens the
+  command palette, with every tool and command of the editor — folded ones
+  too — found by typing their name;
+- in the drawing editor, **🔣** and **☰** show or hide the symbols and the
+  list of objects; in the painting editor, **☰** the layers. An open panel
+  does not hide the drawing: it scrolls beside it.
+
 ## Tools
 
 | Tool | Use |
@@ -33,8 +50,21 @@ whole.
 | ╱ Line, ➝ Arrow | Drag from one end to the other; an end dropped on a connection point stays attached to it |
 
 | ✎ Freehand | Draw with the mouse, the finger or a pen; the stroke is smoothed |
-| T Text | Click where the text goes and type it in place: <kbd>Enter</kbd> for a new line, <kbd>Escape</kbd> when done; its **Size** is in the bar above; a double click on a text edits it again |
+| T Text | Click where the text goes and type it in place: <kbd>Enter</kbd> for a new line, <kbd>Escape</kbd> when done; a double click on a text edits it again. See [Formatting text](#formatting-text) |
 | ⌐ Wire | Drag from a pin to another pin: the wire is drawn in right angles |
+
+### Formatting text
+
+The bar above the drawing has the **Size**, **B** (bold), **I** (italic),
+**U** (underline) and **Colour** of a text:
+
+- while typing, they apply to the **selected part** only — a word in bold,
+  a larger title line, an amount in red — the rest keeping its look;
+  <kbd>Ctrl</kbd>+<kbd>B</kbd>, <kbd>Ctrl</kbd>+<kbd>I</kbd> and
+  <kbd>Ctrl</kbd>+<kbd>U</kbd> work too;
+- with a text selected (not being typed), they apply to the **whole text**.
+
+Each line is as high as its largest part.
 
 A line selected shows its properties: **arrow at the start**, **arrow at
 the end**, and **right angles** (routed in horizontal and vertical
@@ -154,6 +184,11 @@ Tab; a click (or Enter) selects it, and the arrows then move it.
   cannot see it.
 - **Download SVG** and **Download PNG** (twice the size, for sharp printing)
   save the drawing on its own.
+- **Download PDF** saves it as a PDF page of its size, drawn with vectors:
+  sharp at any zoom, its text searchable and selectable — a schematic ready to
+  print or send. Greek letters and signs (Ω, µ, ≤, →…) come from the
+  standard Symbol font; a text in other scripts (Chinese…) makes the page a
+  picture of the drawing instead.
 
 **Done** puts the drawing in the document (or updates it), **Cancel** leaves
 it as it was.
@@ -180,6 +215,9 @@ use the painting editor:
   a picture → **Paint on the picture**;
 - **Templates and examples → Examples → Poster in layers**, to see layers at
   work.
+
+It takes the whole window, its tools folding away, with the command palette:
+see [The whole window](#the-whole-window).
 
 ![The painting editor: the poster in layers, its title picked on a vector layer, the layers panel on the right](/screenshots/painting-layers.png)
 

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { PDFDict, PDFDocument, PDFHexString, PDFName, PDFRawStream, decodePDFRawStream } from '@pdfme/pdf-lib';
-import { applyEdits, inspectPdf } from '../src/pdf/forms';
-import { drawingOps, invert, parseColor, parseTransform, pathOps, type VectorFont } from '../src/pdf/vector';
-import type { Drawing } from '../src/draw/model';
+import { applyEdits, drawingPdf, inspectPdf } from '../src/pdf/forms';
+import { drawingOps, invert, parseColor, parseTransform, pathOps, WIN_ANSI, type VectorFont } from '../src/pdf/vector';
+import { placeSymbol, type Drawing } from '../src/draw/model';
+import { SYMBOLS } from '../src/draw/symbols';
 
 const font: VectorFont = {
   encode: (s) => (/^[\x20-\xff]*$/.test(s) ? `<${[...s].map((c) => c.charCodeAt(0).toString(16).padStart(2, '0')).join('')}>` : null),
@@ -110,5 +111,87 @@ describe('PDF-021 drawings written as PDF vectors', () => {
     const annot = back.getPage(0).node.Annots()!.lookup(0) as PDFDict;
     const ap = (annot.lookup(PDFName.of('AP')) as PDFDict).lookup(PDFName.of('N')) as PDFRawStream;
     expect(new TextDecoder().decode(decodePDFRawStream(ap).decode())).toContain('/Im1 Do');
+  });
+});
+
+describe('DRAW-020 texts with parts of their own look', () => {
+  const rich = (): Drawing => ({
+    width: 300,
+    height: 200,
+    grid: 0,
+    shapes: [
+      {
+        id: 't',
+        kind: 'text',
+        x: 10,
+        y: 30,
+        size: 12,
+        text: 'Total: 42 $\nsigned',
+        runs: [{ text: 'Total: ' }, { text: '42 $', bold: true, size: 20, fill: '#ff0000' }, { text: '\nsigned', italic: true, underline: true }],
+      },
+    ],
+  });
+
+  it('draws each part with its face, size and colour, side by side', () => {
+    const out = drawingOps(rich(), font)!;
+    expect(out.faces.sort()).toEqual(['B', 'I', 'R']);
+    expect(out.ops).toContain('/F1 12 Tf');
+    expect(out.ops).toContain('/F2 20 Tf');
+    expect(out.ops).toContain('1 0 0 rg');
+    // "Total: " is 7 characters of 6 units: the bold part starts after it.
+    expect(out.ops).toContain('1 0 0 -1 52 30 Tm');
+    // The second line below the first's large part; the underline a stroke.
+    expect(out.ops).toContain('/F3 12 Tf\n1 0 0 -1 10 46.4 Tm');
+    expect(out.ops).toMatch(/ l\nS\nQ/);
+  });
+
+  it('embeds the bold and italic fonts needed', async () => {
+    const out = await applyEdits(await blank(), { values: {}, stamps: [], flatten: false, drawings: [{ page: 0, drawing: rich(), matrix: invert(VIEW) }] });
+    const back = await PDFDocument.load(out);
+    const annot = back.getPage(0).node.Annots()!.lookup(0) as PDFDict;
+    const ap = (annot.lookup(PDFName.of('AP')) as PDFDict).lookup(PDFName.of('N')) as PDFRawStream;
+    const fonts = (ap.dict.lookup(PDFName.of('Resources')) as PDFDict).lookup(PDFName.of('Font')) as PDFDict;
+    const base = (k: string): string => String((fonts.lookup(PDFName.of(k)) as PDFDict).get(PDFName.of('BaseFont')));
+    expect([base('F1'), base('F2'), base('F3')]).toEqual(['/Helvetica', '/Helvetica-Bold', '/Helvetica-Oblique']);
+    // Opened again, the looks are kept.
+    const info = await inspectPdf(out, { drawings: true });
+    expect((info.drawings![0]!.drawing.shapes[0] as { runs?: unknown[] }).runs).toHaveLength(3);
+  });
+});
+
+describe('DRAW-021 a drawing as a PDF', () => {
+  it('is one page its size, drawn as vectors', async () => {
+    const bytes = await drawingPdf({ ...drawing(), alt: 'Wiring' });
+    const doc = await PDFDocument.load(bytes);
+    expect(doc.getPageCount()).toBe(1);
+    expect(doc.getPage(0).getSize()).toEqual({ width: 595, height: 842 });
+    expect(doc.getTitle()).toBe('Wiring');
+    expect(doc.getPage(0).node.Annots()?.size() ?? 0).toBe(0);
+    const xobjects = doc.getPage(0).node.Resources()!.lookup(PDFName.of('XObject')) as PDFDict;
+    const form = xobjects.lookup(xobjects.keys()[0]!) as PDFRawStream;
+    expect(new TextDecoder().decode(decodePDFRawStream(form).decode())).toContain('/F1 14 Tf');
+  });
+
+  it('writes every symbol of the library as vectors', () => {
+    const bad = SYMBOLS.filter((def) => {
+      const d: Drawing = { width: 200, height: 200, grid: 10, shapes: [] };
+      placeSymbol(d, def.id, 100, 100).value = '4.7 kΩ';
+      return !drawingOps(d, WIN_ANSI);
+    }).map((def) => def.id);
+    expect(bad).toEqual([]);
+  });
+
+  it('writes the Ω of a value with the Symbol font, the rest in Helvetica', async () => {
+    const d: Drawing = { width: 200, height: 100, grid: 0, shapes: [{ id: 'v', kind: 'text', x: 10, y: 50, text: 'R1 4.7 kΩ' }] };
+    const doc = await PDFDocument.load(await drawingPdf(d));
+    const xobjects = doc.getPage(0).node.Resources()!.lookup(PDFName.of('XObject')) as PDFDict;
+    const form = xobjects.lookup(xobjects.keys()[0]!) as PDFRawStream;
+    const ops = new TextDecoder().decode(decodePDFRawStream(form).decode());
+    expect(ops).toMatch(/\/F1 16 Tf\n1 0 0 -1 10 50 Tm\n<[0-9A-F]+> Tj\n\/F5 16 Tf\n1 0 0 -1 [\d.]+ 50 Tm\n<57> Tj/);
+    const fonts = (form.dict.lookup(PDFName.of('Resources')) as PDFDict).lookup(PDFName.of('Font')) as PDFDict;
+    expect(String((fonts.lookup(PDFName.of('F5')) as PDFDict).get(PDFName.of('BaseFont')))).toBe('/Symbol');
+    // Told apart from what no standard font has.
+    expect(drawingOps(d, WIN_ANSI)).not.toBeNull();
+    expect(drawingOps({ ...d, shapes: [{ id: 'z', kind: 'text', x: 0, y: 0, text: '你好' }] }, WIN_ANSI)).toBeNull();
   });
 });

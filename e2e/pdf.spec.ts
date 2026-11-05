@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { PDFDocument, PDFName, StandardFonts } from '@pdfme/pdf-lib';
+import { PDFDocument, PDFName, StandardFonts, decodePDFRawStream } from '@pdfme/pdf-lib';
 import { openApp, openFile, saveAs, answerName } from './helpers';
 
 async function samplePdf(): Promise<Buffer> {
@@ -80,26 +80,38 @@ test('adds text boxes and arrows with the drawing editor, saved as vectors and e
   // The text tool is chosen: a click, then the text is typed in place, on two lines.
   const stage = dialog.locator('svg.draw-stage');
   const box = (await stage.boundingBox())!;
-  await page.mouse.click(box.x + box.width * 0.2, box.y + box.height * 0.3);
-  const editor = dialog.locator('textarea.draw-text-editor');
+  // The page as wide as the window: the symbols and objects panels hidden.
+  await expect(dialog.locator('.draw-library')).toBeHidden();
+  expect(box.width).toBeGreaterThan(900);
+  await page.mouse.click(box.x + box.width * 0.2, box.y + 120);
+  const editor = dialog.locator('.draw-text-editor');
   await expect(editor).toBeFocused();
   await editor.pressSequentially('Approved');
   await editor.press('Enter');
   await editor.pressSequentially('by Ada');
+  // DRAW-020: the first line alone, bold and larger.
+  await editor.press('Control+Home');
+  await editor.press('Shift+End');
+  await editor.press('Control+B');
+  await dialog.getByLabel('Size', { exact: true }).selectOption('24');
+  await expect(editor).toBeFocused();
   if (process.env.SCREENSHOTS) await page.screenshot({ path: 'test-results/pdf-draw-typing.png' });
   await editor.press('Escape');
   await expect(dialog.locator('.draw-objects button', { hasText: 'Approved' })).toHaveCount(1);
-  await expect(dialog.locator('.draw-content tspan')).toHaveText(['Approved', 'by Ada']);
+  await expect(dialog.locator('.draw-content text > tspan')).toHaveText(['Approved', 'by Ada']);
+  await expect(dialog.locator('.draw-content tspan[font-weight="bold"][font-size="24"]')).toHaveText('Approved');
 
   // An arrow pointing at it.
   await dialog.getByRole('button', { name: 'Arrow' }).click();
-  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.5);
+  // The page fills the window's width: near the text, in view.
+  const at = (await dialog.locator('.draw-content text').boundingBox())!;
+  await page.mouse.move(at.x + at.width + 150, at.y + at.height + 80);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.32, { steps: 4 });
+  await page.mouse.move(at.x + at.width + 10, at.y + at.height / 2, { steps: 4 });
   await page.mouse.up();
   await dialog.getByRole('button', { name: 'Done' }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.locator('.pdf-page').first().locator('.pdf-drawing-layer tspan')).toHaveText(['Approved', 'by Ada']);
+  await expect(page.locator('.pdf-page').first().locator('.pdf-drawing-layer text > tspan')).toHaveText(['Approved', 'by Ada']);
   if (process.env.SCREENSHOTS) await page.screenshot({ path: 'test-results/pdf-draw-page.png' });
 
   // The form's fields are annotations too: the stamps alone.
@@ -110,6 +122,13 @@ test('adds text boxes and arrows with the drawing editor, saved as vectors and e
   const doc = await PDFDocument.load(saved);
   expect(stamps(doc)).toHaveLength(1);
   expect(contents(stamps(doc)[0]!)).toBe('Approved\nby Ada');
+  const appearance = (a: import('@pdfme/pdf-lib').PDFDict): string => {
+    const ap = (a.lookup(PDFName.of('AP')) as import('@pdfme/pdf-lib').PDFDict).lookup(PDFName.of('N')) as import('@pdfme/pdf-lib').PDFRawStream;
+    return new TextDecoder().decode(decodePDFRawStream(ap).decode());
+  };
+  // The bold part in Helvetica Bold, the rest in Helvetica.
+  expect(appearance(stamps(doc)[0]!)).toContain('/F2 24 Tf');
+  expect(appearance(stamps(doc)[0]!)).toContain('/F1 16 Tf');
 
   // Opened again: one drawing, editable, not drawn twice.
   await openFile(page, 'drawn.pdf', saved, 'application/pdf');
@@ -123,9 +142,9 @@ test('adds text boxes and arrows with the drawing editor, saved as vectors and e
   const text = again.locator('.draw-content text');
   const tb = (await text.boundingBox())!;
   await page.mouse.dblclick(tb.x + 5, tb.y + 5);
-  const editor2 = again.locator('textarea.draw-text-editor');
+  const editor2 = again.locator('.draw-text-editor');
   await expect(editor2).toBeFocused();
-  await expect(editor2).toHaveValue('Approved\nby Ada');
+  await expect(editor2.locator('span', { hasText: 'Approved' })).toHaveCSS('font-weight', '700');
   await editor2.press('Control+End');
   await editor2.pressSequentially(' L.');
   await editor2.press('Control+Enter');
@@ -133,6 +152,47 @@ test('adds text boxes and arrows with the drawing editor, saved as vectors and e
   const doc2 = await PDFDocument.load(await download(page));
   expect(stamps(doc2)).toHaveLength(1);
   expect(contents(stamps(doc2)[0]!)).toBe('Approved\nby Ada L.');
+  expect(errors).toEqual([]);
+});
+
+test('a signature and a text put on the page come into its drawing, moved and saved with it (PDF-021)', async ({ page }) => {
+  const errors = await openApp(page);
+  await openFile(page, 'stamped.pdf', await samplePdf(), 'application/pdf');
+  await page.getByRole('button', { name: 'Add signature' }).click();
+  const pad = page.getByLabel('Signature drawing area');
+  const box = (await pad.boundingBox())!;
+  await page.mouse.move(box.x + 30, box.y + 60);
+  await page.mouse.down();
+  for (let i = 1; i <= 12; i++) await page.mouse.move(box.x + 30 + i * 20, box.y + 60 + Math.sin(i) * 25);
+  await page.mouse.up();
+  await page.getByRole('button', { name: 'Place signature' }).click();
+  page.once('dialog', (d) => void d.accept('Paid in full'));
+  await page.getByRole('button', { name: 'Add text' }).click();
+  await expect(page.locator('.pdf-stamp')).toHaveCount(2);
+
+  await page.getByRole('button', { name: 'Draw', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Drawing on page 1' });
+  // Both are objects of the drawing, the signature a picture.
+  await expect(dialog.locator('.draw-objects button')).toHaveText(['Picture: Signature', 'Text: Paid in full']);
+  await expect(dialog.locator('.draw-content image')).toHaveCount(1);
+  // Cancelled: they stay on the page as they were.
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.locator('.pdf-stamp')).toHaveCount(2);
+
+  await page.getByRole('button', { name: 'Draw', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Done' }).click();
+  await expect(page.locator('.pdf-stamp')).toHaveCount(0);
+  await expect(page.locator('.pdf-drawing-layer image')).toHaveCount(1);
+  await expect(page.locator('.pdf-drawing-layer text')).toHaveText('Paid in full');
+
+  // Saved as one vector drawing: the signature an image in it, the text text.
+  const doc = await PDFDocument.load(await download(page));
+  const annots = (doc.getPage(0).node.Annots()?.asArray() ?? []).map((ref) => doc.context.lookup(ref) as import('@pdfme/pdf-lib').PDFDict).filter((a) => String(a.get(PDFName.of('Subtype'))) === '/Stamp');
+  expect(annots).toHaveLength(1);
+  const ap = (annots[0]!.lookup(PDFName.of('AP')) as import('@pdfme/pdf-lib').PDFDict).lookup(PDFName.of('N')) as import('@pdfme/pdf-lib').PDFRawStream;
+  const ops = new TextDecoder().decode(decodePDFRawStream(ap).decode());
+  expect(ops).toContain('/Im1 Do');
+  expect(ops).toContain('/F1 12 Tf');
   expect(errors).toEqual([]);
 });
 
