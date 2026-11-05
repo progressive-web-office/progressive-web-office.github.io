@@ -48,10 +48,11 @@ from under them:
 | ⬚ Select and move | Click a shape (Shift+click adds to the selection), drag to move it; drag on an empty spot to select everything in a rectangle |
 | ▭ Rectangle, ◯ Ellipse | Drag from one corner to the other; Shift draws a square or a circle |
 | ╱ Line, ➝ Arrow | Drag from one end to the other; an end dropped on a connection point stays attached to it |
-
 | ✎ Freehand | Draw with the mouse, the finger or a pen; the stroke is smoothed |
+| 🖍 Highlight | A wide, translucent yellow stroke over what matters, which stays readable; <kbd>Shift</kbd> draws it straight. Select it to change its colour |
 | T Text | Click where the text goes and type it in place: <kbd>Enter</kbd> for a new line, <kbd>Escape</kbd> when done; a double click on a text edits it again. See [Formatting text](#formatting-text) |
 | ⌐ Wire | Drag from a pin to another pin: the wire is drawn in right angles |
+| ✍ Sign | Draw or import a signature (the pad of the [PDF viewer](./pdf#signing), the remembered signature offered): it is put in the middle as a picture, moved and resized with its proportions kept (<kbd>Shift</kbd> stretches it) |
 
 ### Formatting text
 
@@ -225,12 +226,14 @@ see [The whole window](#the-whole-window).
 |---|---|
 | ✏ Pencil | Hard-edged pixels, for pixel art and fine touches |
 | 🖌 Brush | Smooth strokes; the opacity applies to the whole stroke (no darker overlaps) |
+| 🖍 Highlight | A wide translucent stroke, yellow at first, that leaves what is under it readable (dark lines stay dark); <kbd>Shift</kbd> draws it straight. It keeps a colour of its own: the brush gets its colour back |
 | ⌫ Eraser | Makes pixels transparent (white on the background of a JPEG) |
 | 🪣 Fill | Fills the area of the same colour around the click |
 | 🌈 Gradient | Drag from where the gradient starts to where it ends: **linear**, **radial**, **turning** (conic), from the **colour** to the **second colour** — or **every hue, turning** (a colour wheel). It fills the selection, or the whole layer |
 | ╱ ▭ ◯ | Line, rectangle, ellipse; Shift for 45° lines, squares and circles; **filled shapes** to fill them |
 | T Text | Writes text where you click, sized by **Size** |
 | 💧 Pick a colour | Takes the colour of the picture as shown (all its visible layers) |
+| ✍ Sign | Draw or import a signature: it comes on a new layer **Signature**, in the middle; drag it to move it, drag its blue corner to resize it with its proportions kept (<kbd>Shift</kbd>: free) |
 | ⬚ Select | Drag a rectangle; drag it (or use the arrows, Shift: 10 px) to move its pixels; Delete clears it; Ctrl+C / Ctrl+X / Ctrl+V copy, cut and paste. On a vector layer: picks a shape |
 
 **Colour**, **Size** and **Opacity** set the tool; **Width** and **Height**

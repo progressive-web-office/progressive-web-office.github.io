@@ -12,6 +12,7 @@
 import { attachZoomPan, zoomAt } from '../app/zoom-pan';
 import { button, h } from '../app/dom';
 import { immersive } from '../app/immersive';
+import { askSignature, fitSize, HIGHLIGHT, signButton, signatureImage } from '../app/mark';
 import { t } from '../i18n';
 import { ORA_TYPE, readOra, writeOra, type OraLayer } from './ora';
 import { along, floodFill, hexToRgba, keepsAlpha, pixelAt, rectBetween, rgbaToHex } from './pixels';
@@ -29,7 +30,7 @@ export interface PaintOptions {
   layered?: boolean;
 }
 
-type Tool = 'pencil' | 'brush' | 'eraser' | 'fill' | 'gradient' | 'line' | 'rect' | 'ellipse' | 'text' | 'picker' | 'select';
+type Tool = 'pencil' | 'brush' | 'highlight' | 'eraser' | 'fill' | 'gradient' | 'line' | 'rect' | 'ellipse' | 'text' | 'picker' | 'select';
 type Pt = [number, number];
 interface Rect { x: number; y: number; w: number; h: number }
 
@@ -55,7 +56,7 @@ interface State {
 }
 
 const MAX_UNDO = 30;
-const PIXEL_TOOLS: Tool[] = ['pencil', 'brush', 'eraser', 'fill', 'gradient'];
+const PIXEL_TOOLS: Tool[] = ['pencil', 'brush', 'highlight', 'eraser', 'fill', 'gradient'];
 
 const newCanvas = (w: number, hh: number): HTMLCanvasElement => {
   const c = h('canvas', { class: 'paint-layer' });
@@ -203,17 +204,20 @@ export async function paintPicture(
     let sayTimer: ReturnType<typeof setTimeout> | undefined;
 
     const tools: [Tool, string, string][] = [
-      ['pencil', '✏', t('paint.pencil')], ['brush', '🖌', t('paint.brush')], ['eraser', '⌫', t('paint.eraser')], ['fill', '🪣', t('paint.fill')], ['gradient', '🌈', t('paint.gradient')],
+      ['pencil', '✏', t('paint.pencil')], ['brush', '🖌', t('paint.brush')], ['highlight', '🖍', t('pdf.highlight')], ['eraser', '⌫', t('paint.eraser')], ['fill', '🪣', t('paint.fill')], ['gradient', '🌈', t('paint.gradient')],
       ['line', '╱', t('draw.line')], ['rect', '▭', t('draw.rect')], ['ellipse', '◯', t('draw.ellipse')], ['text', 'T', t('draw.text')],
       ['picker', '💧', t('paint.picker')], ['select', '⬚', t('paint.select')],
     ];
     const toolButtons = tools.map(([value, icon, label]) => {
-      const b = button(label, () => setTool(value), { text: icon, title: label, pressed: value === tool });
+      const b = button(label, () => setTool(value), { text: icon, title: value === 'highlight' ? t('mark.highlightTitle') : label, pressed: value === tool });
       b.dataset.tool = value;
       return b;
     });
+    /** MARK-002: the highlighter keeps a colour of its own, yellow at first. */
+    let otherColor: string = HIGHLIGHT.color;
     const setTool = (value: Tool): void => {
       if (value !== 'select') commitFloat();
+      if ((tool === 'highlight') !== (value === 'highlight')) [colorInput.value, otherColor] = [otherColor, colorInput.value];
       tool = value;
       for (const b of toolButtons) b.setAttribute('aria-pressed', String(b.dataset.tool === tool));
       overlay.dataset.tool = tool;
@@ -576,6 +580,28 @@ export async function paintPicture(
       say(t('paint.imported'));
     }
 
+    /** MARK-001: the signature pad of the PDF viewer; the signature a new layer, in the middle, moved and resized before it is put down. */
+    async function signHere(): Promise<void> {
+      const sig = await askSignature(dialog);
+      if (!sig) return;
+      const bitmap = await signatureImage(sig.png);
+      commitFloat();
+      snapshot();
+      const size = fitSize(sig.width, sig.height, width * 0.4, height * 0.3);
+      const image = newCanvas(Math.max(1, size.w), Math.max(1, size.h));
+      image.getContext('2d')!.drawImage(bitmap, 0, 0, image.width, image.height);
+      bitmap.close();
+      const l = makeLayer(t('pdf.signature'));
+      layers.splice(active + 1, 0, l);
+      active++;
+      relayout();
+      setTool('select');
+      floating = { image, x: Math.round((width - image.width) / 2), y: Math.round((height - image.height) / 2), source: image };
+      selection = { x: floating.x, y: floating.y, w: image.width, h: image.height };
+      drawOverlay();
+      sync();
+    }
+
     /** DRAW-016: a grid drawn on the active layer, every so many pixels. */
     const drawGrid = (): void => {
       if (A().shapes) return say(t('paint.vectorNoPixels'));
@@ -609,7 +635,7 @@ export async function paintPicture(
     // --- selection ------------------------------------------------------------------
     let selection: Rect | undefined;
     /** Pixels lifted from the active layer, moved over it until dropped. */
-    let floating: { image: HTMLCanvasElement; x: number; y: number } | undefined;
+    let floating: { image: HTMLCanvasElement; x: number; y: number; source?: HTMLCanvasElement } | undefined;
     let clipboard: HTMLCanvasElement | undefined;
     /** DRAW-014: the shape picked on a vector layer. */
     let picked: number | undefined;
@@ -697,6 +723,12 @@ export async function paintPicture(
         octx.restore();
       };
       if (selection) dashed(floating ? { ...selection, x: floating.x, y: floating.y } : selection);
+      if (floating && selection) {
+        // The corner that resizes what floats.
+        const k = 8 / zoom;
+        octx.fillStyle = '#1f5fbf';
+        octx.fillRect(floating.x + selection.w - k / 2, floating.y + selection.h - k / 2, k, k);
+      }
       const shape = picked !== undefined ? A().shapes?.[picked] : undefined;
       if (shape) dashed(bounds(shape, measure));
     }
@@ -749,7 +781,7 @@ export async function paintPicture(
     };
     /** A freehand stroke: drawn on a sheet, put down with its opacity when done (no darker overlaps). */
     let sheet: { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } | undefined;
-    let drag: { from: Pt; last: Pt; mode: 'paint' | 'shape' | 'gradient' | 'select' | 'move' | 'moveShape'; offset?: Pt; original?: VectorShape } | undefined;
+    let drag: { from: Pt; last: Pt; mode: 'paint' | 'shape' | 'gradient' | 'select' | 'move' | 'scale' | 'moveShape'; offset?: Pt; original?: VectorShape } | undefined;
 
     const stamp = (from: Pt, to: Pt): void => {
       if (!sheet) return;
@@ -761,7 +793,7 @@ export async function paintPicture(
         for (const [x, y] of along(from, to, 0.5)) c.fillRect(Math.floor(x - s / 2 + 0.5), Math.floor(y - s / 2 + 0.5), s, s);
         return;
       }
-      c.lineWidth = lineWidth();
+      c.lineWidth = tool === 'highlight' ? Math.max(HIGHLIGHT.width, lineWidth()) : lineWidth();
       c.lineCap = 'round';
       c.lineJoin = 'round';
       c.strokeStyle = tool === 'eraser' ? '#000' : color();
@@ -773,8 +805,11 @@ export async function paintPicture(
     const showSheet = (): void => {
       if (!sheet) return;
       drawOverlay((c) => {
-        c.globalAlpha = tool === 'eraser' ? 0.5 : alpha() * A().opacity;
+        c.globalAlpha = tool === 'eraser' ? 0.5 : (tool === 'highlight' ? HIGHLIGHT.opacity : alpha()) * A().opacity;
+        // MARK-002: what is under the highlighter stays readable.
+        if (tool === 'highlight') c.globalCompositeOperation = 'multiply';
         c.drawImage(sheet!.canvas, 0, 0);
+        c.globalCompositeOperation = 'source-over';
         c.globalAlpha = 1;
       });
     };
@@ -845,6 +880,12 @@ export async function paintPicture(
       }
       if (tool === 'select') {
         const r = floating ? { ...selection!, x: floating.x, y: floating.y } : selection;
+        if (floating && r && Math.abs(p[0] - (r.x + r.w)) <= 8 / zoom && Math.abs(p[1] - (r.y + r.h)) <= 8 / zoom) {
+          // MARK-001: resized from its corner, its proportions kept (Shift: free).
+          floating.source ??= floating.image;
+          drag = { from: p, last: p, mode: 'scale' };
+          return;
+        }
         if (r && p[0] >= r.x && p[0] <= r.x + r.w && p[1] >= r.y && p[1] <= r.y + r.h) {
           lift();
           drag = { from: p, last: p, mode: 'move', offset: [p[0] - floating!.x, p[1] - floating!.y] };
@@ -874,7 +915,13 @@ export async function paintPicture(
     overlay.addEventListener('pointermove', (e) => {
       if (!drag) return;
       const p = point(e);
-      if (drag.mode === 'paint') {
+      if (drag.mode === 'paint' && tool === 'highlight' && e.shiftKey && sheet) {
+        // Straight with Shift.
+        sheet.ctx.clearRect(0, 0, width, height);
+        stamp(drag.from, p);
+        drag.last = p;
+        showSheet();
+      } else if (drag.mode === 'paint') {
         stamp(drag.last, p);
         drag.last = p;
         showSheet();
@@ -899,6 +946,16 @@ export async function paintPicture(
         selection = rectBetween(drag.from, p, width, height);
         drawOverlay();
         sync();
+      } else if (drag.mode === 'scale' && floating?.source) {
+        const src = floating.source;
+        const w = Math.max(4, Math.round(p[0] - floating.x));
+        const hh = e.shiftKey ? Math.max(4, Math.round(p[1] - floating.y)) : Math.max(1, Math.round((w * src.height) / src.width));
+        const image = newCanvas(w, hh);
+        image.getContext('2d')!.drawImage(src, 0, 0, w, hh);
+        floating.image = image;
+        selection = { x: floating.x, y: floating.y, w, h: hh };
+        drawOverlay();
+        sync();
       } else if (drag.mode === 'move' && floating) {
         floating.x = Math.round(p[0] - drag.offset![0]);
         floating.y = Math.round(p[1] - drag.offset![1]);
@@ -917,8 +974,9 @@ export async function paintPicture(
       if (dr.mode === 'paint' && sheet) {
         snapshot();
         l.ctx.save();
-        l.ctx.globalAlpha = tool === 'eraser' ? 1 : alpha();
-        if (tool === 'eraser' && !(opaque && active === 0)) l.ctx.globalCompositeOperation = 'destination-out';
+        l.ctx.globalAlpha = tool === 'eraser' ? 1 : tool === 'highlight' ? HIGHLIGHT.opacity : alpha();
+        if (tool === 'highlight') l.ctx.globalCompositeOperation = 'multiply';
+        else if (tool === 'eraser' && !(opaque && active === 0)) l.ctx.globalCompositeOperation = 'destination-out';
         else if (tool === 'eraser') {
           // Erasing the background of a JPEG paints white.
           const sc = sheet.ctx;
@@ -1149,7 +1207,7 @@ export async function paintPicture(
     const toolbarEl = h(
       'div',
       { class: 'draw-toolbar', role: 'toolbar', 'aria-label': t('paint.tools') },
-      group(t('paint.tools'), ...toolButtons),
+      group(t('paint.tools'), ...toolButtons, signButton(() => void signHere())),
       group(t('common.undo'), undoBtn, redoBtn),
       group(
         t('paint.selection'),

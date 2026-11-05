@@ -620,6 +620,17 @@ export class SlideEditor implements EditorView {
     this.addShape({ ...textShape('', { kind: 'image', image: key, alt: file.name.replace(/\.[^.]+$/, ''), x: (this.pres.width - width) / 2, y: (this.pres.height - height) / 2, width, height }), paragraphs: [] });
   }
 
+  /** MARK-001: the signature pad of the PDF viewer; the signature put on the slide as a picture, at the bottom right. */
+  private async sign(): Promise<void> {
+    const { askSignature, fitSize } = await import('../app/mark');
+    const sig = await askSignature(this.element);
+    if (!sig) return;
+    const key = addResource(this.pres, sig.png, 'image/png', 'signature.png');
+    const { w: width, h: height } = fitSize(sig.width, sig.height, this.pres.width * 0.3, this.pres.height * 0.2);
+    const margin = Math.round(this.pres.height * 0.05);
+    this.addShape({ ...textShape('', { kind: 'image', image: key, alt: t('pdf.signature'), x: this.pres.width - width - margin, y: this.pres.height - height - margin, width, height }), paragraphs: [] });
+  }
+
   /** DRAW-007: a new drawing on the slide, or a drawing of the slide edited again. */
   private async editDrawing(shape?: Shape): Promise<void> {
     const res = shape?.image ? this.pres.resources.get(shape.image) : undefined;
@@ -778,6 +789,7 @@ export class SlideEditor implements EditorView {
       b(t('slides.addRect'), '▭', () => this.addShape({ ...textShape('', { kind: 'rect', fill: '#4472c4', x: w * 0.4, y: hh * 0.4, width: 200, height: 120, anchor: 'middle' }), paragraphs: [] })),
       b(t('slides.addEllipse'), '◯', () => this.addShape({ ...textShape('', { kind: 'ellipse', fill: '#ed7d31', x: w * 0.4, y: hh * 0.4, width: 160, height: 160, anchor: 'middle' }), paragraphs: [] })),
       b(t('slides.addImage'), '🖼', () => void this.addImage()),
+      b(t('pdf.sign'), '✍', () => void this.sign()),
       b(t('draw.insert'), '✏️', () => void this.editDrawing()),
       h('span', { class: 'sep' }),
       b(t('common.bold'), 'B', () => this.format('bold')),

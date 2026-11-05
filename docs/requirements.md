@@ -745,6 +745,18 @@ See [DigitalSignalix](./digitalsignalix.md).
 | VAULT-004 | S | 0.2.0 | Where the user agreed, a password shall be checked against known breaches by k-anonymity (only the first characters of its hash sent). |
 | VAULT-005 | C | — | The vault shall be shown in a page of its own, without plugins, code cells nor documents of others, under a strict content security policy. |
 
+## 9zd. Marking up: signing, highlighting, adding text (MARK)
+
+The signing, highlighting and text tools of the PDF viewer (PDF-011, PDF-013,
+PDF-018), offered wherever something is marked up.
+
+| ID | Pri | Phase | Requirement |
+|----|-----|-------|-------------|
+| MARK-001 | S | 0.2.0 | When the user chooses ✍ Sign in the drawing, painting or photo editor, a text document or a presentation, the system shall open the signature pad of the PDF viewer (drawn or imported, the remembered signature offered, PDF-011, PDF-014) and place the signature as a picture the user can move and resize, keeping its proportions. |
+| MARK-002 | S | 0.2.0 | The drawing and painting editors shall offer a highlighter: a wide translucent stroke, yellow by default or of a chosen colour, drawn freehand (straight with Shift), what is under it staying readable. |
+| MARK-003 | S | 0.2.0 | Wherever the system offers signing, highlighting or adding text, it shall name them the same way (✍ Sign, 🖍 Highlight, T Text), in the toolbar and in the command palette (UI-018). |
+| MARK-004 | W | — | Signing a spreadsheet (a sheet holds no pictures). |
+
 ## 10. Out of scope (Won't, this time)
 
 - A collaboration server, user accounts, or storage of documents on a server we operate.

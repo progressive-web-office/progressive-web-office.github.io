@@ -37,7 +37,9 @@ files.
 
 ## Shapes
 
-- **T** text box, **▭** rectangle, **◯** ellipse, **🖼** image.
+- **T** text box, **▭** rectangle, **◯** ellipse, **🖼** image, **✍**
+  signature (drawn or imported as in the [PDF viewer](./pdf#signing), put at
+  the bottom right of the slide as a picture).
 - Click a shape to select it; drag to move it, drag the corner handle to
   resize it. Arrow keys move the selected shape (<kbd>Shift</kbd>: 10 px).
 - While you drag, the shape **snaps** to the edges and centres of the other
