@@ -10,6 +10,12 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
 
 ### Added
 
+- **AI agents on PDF files and folders** (AI-010, AI-011): the assistant and
+  the agents reached through WebMCP read the pages of a PDF file, list and
+  fill its form fields (only with values they accept), list its
+  annotations, place notes and highlight texts — each change approved by the
+  user and undoable — and, while a folder is open, list, search and read its
+  notes and documents, read-only and within that folder.
 - **Speed reading** (RSVP-001..RSVP-007): *⚡ Speed reading* (toolbar,
   command palette or Ctrl+Alt+S) shows a text document, a Markdown note or a
   PDF file one word at a time in the whole window, from the cursor or the

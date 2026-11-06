@@ -470,6 +470,8 @@ integration is ever needed.
 | AI-007 | M | 0.1.0 | The system shall let the user choose the AI provider of the assistant — Anthropic (Claude), OpenAI, Mistral AI, Albert (French State), a local Ollama server, or any server offering the OpenAI chat completions API — with its own key, model and (for local and custom servers) API address, kept per provider; local servers on `localhost` shall be reachable over HTTP. |
 | AI-008 | M | 0.1.0 | The system shall give every provider the same document tools, confirmations and undo, ask consent again when the provider, address or model changes, and start a new conversation when the provider changes. |
 | AI-009 | C | — | Several assistants in one conversation (e.g. one model drafts, another reviews). |
+| AI-010 | S | 0.2.0 | While a PDF file is open, the system shall give AI agents (the assistant, or one reached through WebMCP, AI-006) tools to read the text of its pages, list its form fields with their values and choices, fill them, list its annotations, place a note on a page and highlight a text found on a page; the inputs shall be checked, a field shall take only a value it accepts, and each change shall ask the user's approval and be undoable (AI-003). |
+| AI-011 | S | 0.2.0 | While a folder is open, the system shall give AI agents tools to list the notes and documents of the folder, search them (ignoring case and accents, with extracts) and read one of them as text, only within that folder and without changing it. |
 
 ## 9g. Grist (GRIST)
 

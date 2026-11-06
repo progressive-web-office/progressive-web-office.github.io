@@ -263,6 +263,12 @@ any other tool. Planned, the most useful first:
 - ✅ Markdown extras: highlight `==text==`, callouts (`> [!NOTE]`) (MD-019);
   next: attributes (`{#id .class}`), unnumbered headings
 
+### AI agents
+
+- ✅ Tools on PDF files and open folders for the assistant and WebMCP agents
+  (AI-010, AI-011); next: the assistant as an MCP client (remote MCP
+  servers), a local MCP bridge for desktop agents
+
 ### Review and collaboration
 
 - ✅ Comments in text documents (REV-001 to REV-004: DOCX, ODT, Markdown);

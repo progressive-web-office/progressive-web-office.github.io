@@ -19,6 +19,7 @@ import { captureSignature } from './signature-pad';
 import { fitScale, PAGES_PER_ROW, type PdfZoom } from './fit';
 import { findInPages, type PdfMatch } from './find';
 import type { PdfNote } from './annotations';
+import { pdfTools, textBoxes } from '../ai/pdf-tools';
 import { askAuthor } from '../app/author';
 import { isTyping, REVIEW_KEYWORDS, reviewAction, reviewCommands, spreadStart, type ReviewAction } from '../review/keys';
 import { isDistractionFree, showReviewHelp, toggleDistractionFree } from '../review/ui';
@@ -672,16 +673,55 @@ export class PdfViewer implements EditorView {
   /** RSVP-001, RSVP-005: the pages read one word at a time from the current one; then the page of the last word read. */
   private async speedRead(): Promise<void> {
     const [{ speedRead }, { startAt, toWords }] = await Promise.all([import('../rsvp/reader'), import('../rsvp/words')]);
-    const blocks = await Promise.all(
-      Array.from({ length: this.doc.numPages }, async (_, i) => {
-        const content = await (await this.doc.getPage(i + 1)).getTextContent();
-        const text = content.items.map((item) => ('str' in item ? item.str + (item.hasEOL ? '\n' : '') : '')).join('');
-        return { text, at: 0 };
-      }),
-    );
+    const blocks = (await this.pageStrings()).map((text) => ({ text, at: 0 }));
     const last = await speedRead(this.element, blocks, startAt(toWords(blocks), this.current - 1, 0));
     if (last) this.goTo(last.block + 1);
     this.scroller.focus();
+  }
+
+  /** The text of each page, its lines kept (RSVP-001, AI-010). */
+  private pageStrings(): Promise<string[]> {
+    return Promise.all(
+      Array.from({ length: this.doc.numPages }, async (_, i) => {
+        const content = await (await this.doc.getPage(i + 1)).getTextContent();
+        return content.items.map((item) => ('str' in item ? item.str + (item.hasEOL ? '\n' : '') : '')).join('');
+      }),
+    );
+  }
+
+  /** AI-010: tools for AI agents — the assistant, or one reached through WebMCP. */
+  agentTools(): import('../ai/tools').AgentTool[] {
+    return pdfTools({
+      pageCount: () => this.doc.numPages,
+      pageTexts: () => this.pageStrings(),
+      fields: () => this.info.fields,
+      value: (f) => this.currentValue(f),
+      setValue: (name, v) => this.setFieldValue(name, v),
+      ...(this.info.readOnlyReason ? { readOnlyReason: this.info.readOnlyReason } : {}),
+      annotations: () => [...this.existing, ...this.notes.map((n) => ({ page: n.page, kind: n.kind, ...(n.author ? { author: n.author } : {}), text: n.text }))],
+      addNote: async (page, text) => {
+        const [x0, , , y1] = (await this.doc.getPage(page + 1)).view as [number, number, number, number];
+        const note: PdfNote = { kind: 'note', page, boxes: [[x0 + 36, y1 - 56, x0 + 56, y1 - 36]], text, ...(await this.signature()) };
+        this.notes.push(note);
+        this.notesChanged(note);
+      },
+      highlight: async (page, text, comment) => {
+        const sign = await this.signature();
+        let n = 0;
+        let last: PdfNote | undefined;
+        for (let i = 0; i < this.doc.numPages; i++) {
+          if (page !== undefined && i !== page) continue;
+          const content = await (await this.doc.getPage(i + 1)).getTextContent();
+          const boxes = textBoxes(content.items, text);
+          if (!boxes.length) continue;
+          n += boxes.length;
+          last = { kind: 'highlight', page: i, boxes, text: comment, ...sign };
+          this.notes.push(last);
+        }
+        if (last) this.notesChanged(last);
+        return n;
+      },
+    });
   }
 
   private pageTexts(): Promise<string[][]> {
@@ -1053,21 +1093,25 @@ export class PdfViewer implements EditorView {
     }
   }
 
+  /** A value of a field, its widgets on every page following (twin widgets, AI-010). */
+  private setFieldValue(name: string, v: string | boolean | string[]): void {
+    this.values[name] = v;
+    this.ctx.changed();
+    for (const other of Array.from(this.pagesEl.querySelectorAll<HTMLInputElement | HTMLSelectElement>(`[data-field="${CSS.escape(name)}"]`))) {
+      if (other instanceof HTMLSelectElement) {
+        if (other !== document.activeElement) for (const o of Array.from(other.options)) o.selected = Array.isArray(v) ? v.includes(o.value) : o.value === v;
+      } else if (other.type === 'radio') other.checked = other.value === v;
+      else if (other.type === 'checkbox') other.checked = v === true;
+      else if (other !== document.activeElement && typeof v === 'string') other.value = v;
+    }
+  }
+
   private currentValue(field: FormField): string | boolean | string[] {
     return field.name in this.values ? this.values[field.name]! : field.value;
   }
 
   private control(field: FormField, option?: string): HTMLElement | null {
-    const set = (v: string | boolean | string[]): void => {
-      this.values[field.name] = v;
-      this.ctx.changed();
-      // keep twin widgets (same field on several pages) in sync
-      for (const other of Array.from(this.pagesEl.querySelectorAll<HTMLInputElement>(`[data-field="${CSS.escape(field.name)}"]`))) {
-        if (other.type === 'radio') other.checked = other.value === v;
-        else if (other.type === 'checkbox') other.checked = v === true;
-        else if (other !== document.activeElement && typeof v === 'string') other.value = v;
-      }
-    };
+    const set = (v: string | boolean | string[]): void => this.setFieldValue(field.name, v);
     const value = this.currentValue(field);
     // FORM-005: its tooltip, required, and what the file says it accepts.
     const common = { 'data-field': field.name, 'aria-label': field.tooltip ? `${field.name}: ${field.tooltip}` : field.name, title: field.tooltip ?? field.name, disabled: field.readOnly, required: !!field.required, class: 'pdf-field' };
