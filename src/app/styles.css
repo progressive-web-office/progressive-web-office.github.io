@@ -749,10 +749,16 @@ button.doc-source { background: none; border: 0; padding: 0; font: inherit; font
 .ai-head { display: flex; align-items: center; gap: 4px; }
 .ai-head h2 { flex: 1; margin: 0; font-size: 1.05rem; }
 .ai-info { margin: 0; font-size: 0.8rem; color: var(--muted); }
-.ai-setup { display: grid; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); }
+.ai-setup { display: grid; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); flex: 0 1 auto; min-height: 0; overflow: auto; }
 .ai-setup[hidden] { display: none; }
 .ai-setup label { display: grid; gap: 2px; }
 .ai-setup .hint { margin: 0; font-size: 0.8rem; color: var(--muted); }
+.ai-mcp { display: grid; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 8px; min-width: 0; }
+.ai-mcp legend { font-weight: 600; padding: 0 4px; }
+.ai-mcp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.ai-mcp-list li { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
+.ai-mcp-list label { overflow-wrap: anywhere; }
+.ai-mcp-args { max-height: 40vh; overflow: auto; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; font-size: 0.85rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ai-log { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
 .ai-msg { padding: 6px 10px; border-radius: var(--radius); white-space: pre-wrap; overflow-wrap: anywhere; }
 .ai-msg.user { align-self: flex-end; background: var(--sel); max-width: 90%; }

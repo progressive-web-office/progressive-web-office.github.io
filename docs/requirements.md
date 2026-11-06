@@ -472,6 +472,10 @@ integration is ever needed.
 | AI-009 | C | — | Several assistants in one conversation (e.g. one model drafts, another reviews). |
 | AI-010 | S | 0.2.0 | While a PDF file is open, the system shall give AI agents (the assistant, or one reached through WebMCP, AI-006) tools to read the text of its pages, list its form fields with their values and choices, fill them, list its annotations, place a note on a page and highlight a text found on a page; the inputs shall be checked, a field shall take only a value it accepts, and each change shall ask the user's approval and be undoable (AI-003). |
 | AI-011 | S | 0.2.0 | While a folder is open, the system shall give AI agents tools to list the notes and documents of the folder, search them (ignoring case and accents, with extracts) and read one of them as text, only within that folder and without changing it. |
+| AI-012 | S | 0.2.0 | The system shall let the user add remote MCP servers (an HTTPS address, an optional bearer token kept in this browser only if the user chooses so, like AI-004), check each when added, and remove them. |
+| AI-013 | S | 0.2.0 | While the assistant is open, the system shall offer it the tools of the MCP servers the user turned on, named by their server, beside the document tools; each call shall ask the user's approval, showing the server, the tool and its arguments, unless the user allowed that tool for the session. |
+| AI-014 | S | 0.2.0 | The system shall send document content to an MCP server only as arguments of a call the user approved, show which servers are in use, and stop using a server whose answers are not valid. |
+| AI-015 | W | — | Local MCP servers started by the application (stdio); MCP servers that do not accept calls from a web page (CORS). |
 
 ## 9g. Grist (GRIST)
 

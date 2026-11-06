@@ -266,8 +266,9 @@ any other tool. Planned, the most useful first:
 ### AI agents
 
 - ✅ Tools on PDF files and open folders for the assistant and WebMCP agents
-  (AI-010, AI-011); next: the assistant as an MCP client (remote MCP
-  servers), a local MCP bridge for desktop agents
+  (AI-010, AI-011)
+- ✅ The assistant as an MCP client of remote servers, each call approved
+  (AI-012 to AI-014); next: a local MCP bridge for desktop agents
 
 ### Review and collaboration
 

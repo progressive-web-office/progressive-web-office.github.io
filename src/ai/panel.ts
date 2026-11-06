@@ -6,6 +6,8 @@ import { createStreamFactory, runAgent, systemPrompt, type Effort } from './agen
 import { PROVIDERS, providerById, type ProviderId } from './providers';
 import { activeProfile, EFFORTS, forgetApiKey, giveConsent, hasConsent, loadAiSettings, saveAiSettings, type AiSettings } from './settings';
 import type { AgentTool } from './tools';
+import { addMcpServer, forgetMcpTokens, loadMcpServers, removeMcpServer, saveMcpServers, type McpServer } from './mcp-settings';
+import type { McpServerRef } from './mcp-tools';
 
 export interface AssistantContext {
   kind: string;
@@ -39,6 +41,10 @@ export class AssistantPanel {
   private history: unknown[] = [];
   private historyProvider: ProviderId | undefined;
   private controller: AbortController | null = null;
+  /** AI-013: the servers connected in this session, with their tools. */
+  private readonly mcp = new Map<string, { url: string; token: string; tools: AgentTool[] }>();
+  /** AI-013: the tools the user allowed for the session, `server/tool`. */
+  private readonly allowed = new Set<string>();
 
   constructor(private readonly host: AssistantHost) {
     this.info = h('p', { class: 'ai-info' });
@@ -86,7 +92,141 @@ export class AssistantPanel {
 
   private refreshInfo(): void {
     const s = loadAiSettings();
-    this.info.textContent = t('ai.info', { provider: providerById(s.provider).label, model: activeProfile(s).model || '—' });
+    const servers = loadMcpServers().filter((m) => m.enabled);
+    // AI-014: which MCP servers are in use.
+    this.info.textContent = t('ai.info', { provider: providerById(s.provider).label, model: activeProfile(s).model || '—' }) + (servers.length ? ` · ${t('ai.mcp.inUse', { names: servers.map((m) => m.name).join(', ') })}` : '');
+  }
+
+  /** AI-012: the MCP servers — added after a check, turned on or off, removed. */
+  private buildMcp(): HTMLElement {
+    const list = h('ul', { class: 'ai-mcp-list', role: 'list' });
+    const status = h('p', { class: 'hint', role: 'status' });
+    const name = h('input', { type: 'text', 'aria-label': t('ai.mcp.name'), placeholder: t('ai.mcp.name') });
+    const url = h('input', { type: 'url', spellcheck: 'false', 'aria-label': t('ai.mcp.url'), placeholder: 'https://…' });
+    const token = h('input', { type: 'password', autocomplete: 'off', spellcheck: 'false', 'aria-label': t('ai.mcp.token'), placeholder: t('ai.mcp.token') });
+    const remember = h('input', { type: 'checkbox' });
+    const render = (): void => {
+      const servers = loadMcpServers();
+      list.replaceChildren(
+        ...(servers.length
+          ? servers.map((server) => {
+              const on = h('input', { type: 'checkbox', checked: server.enabled, 'aria-label': t('ai.mcp.enabled', { name: server.name }) });
+              on.addEventListener('change', () => {
+                saveMcpServers(loadMcpServers().map((m) => (m.id === server.id ? { ...m, enabled: on.checked } : m)));
+                this.refreshInfo();
+              });
+              return h(
+                'li',
+                {},
+                h('label', { class: 'git-row' }, on, ' ', server.name, h('span', { class: 'hint' }, ` — ${hostOf(server.url)}`)),
+                button(t('ai.mcp.remove'), () => {
+                  removeMcpServer(server.id);
+                  this.mcp.delete(server.id);
+                  render();
+                  this.refreshInfo();
+                }, { text: '×', className: 'icon', title: t('ai.mcp.remove') }),
+              );
+            })
+          : [h('li', { class: 'hint' }, t('ai.mcp.none'))]),
+      );
+    };
+    const add = async (): Promise<void> => {
+      const address = url.value.trim();
+      if (!address) return url.focus();
+      status.textContent = t('ai.mcp.checking');
+      try {
+        const tools = await this.checkServer(address, token.value.trim());
+        const server = addMcpServer({ name: name.value.trim() || hostOf(address), url: address, token: token.value, rememberToken: remember.checked });
+        status.textContent = t('ai.mcp.ok', { name: server.name, n: tools });
+        name.value = url.value = token.value = '';
+        remember.checked = false;
+        render();
+        this.refreshInfo();
+      } catch (err) {
+        status.textContent = t('ai.mcp.failed', { name: hostOf(address), message: (err as Error).message });
+      }
+    };
+    render();
+    return h(
+      'fieldset',
+      { class: 'ai-mcp' },
+      h('legend', {}, t('ai.mcp.title')),
+      h('p', { class: 'hint' }, t('ai.mcp.help')),
+      list,
+      name,
+      url,
+      token,
+      h('label', { class: 'git-row' }, remember, ' ', t('ai.mcp.rememberToken')),
+      h('div', { class: 'dialog-actions' }, button(t('ai.mcp.add'), () => void add())),
+      status,
+    );
+  }
+
+  /** AI-012: a server checked — its session opened, its tools listed; resolves with their number. */
+  private async checkServer(url: string, token: string): Promise<number> {
+    const { McpClient } = await import('./mcp-client');
+    const client = new McpClient(url, token);
+    await client.connect();
+    return (await client.listTools()).length;
+  }
+
+  /** AI-013: the tools of the servers turned on, connected once per session; a server failing is said and left aside. */
+  private async mcpTools(): Promise<AgentTool[]> {
+    const servers = loadMcpServers().filter((m) => m.enabled);
+    if (!servers.length) return [];
+    const [{ McpClient }, { mcpAgentTools }] = await Promise.all([import('./mcp-client'), import('./mcp-tools')]);
+    const out: AgentTool[] = [];
+    for (const server of servers) {
+      let known = this.mcp.get(server.id);
+      if (!known || known.url !== server.url || known.token !== server.token) {
+        try {
+          const client = new McpClient(server.url, server.token);
+          await client.connect();
+          known = { url: server.url, token: server.token, tools: mcpAgentTools(server, client, await client.listTools(), (s, tool, input) => this.approve(s, server, tool, input)) };
+          this.mcp.set(server.id, known);
+        } catch (err) {
+          this.entry('error', t('ai.mcp.failed', { name: server.name, message: (err as Error).message }));
+          continue;
+        }
+      }
+      out.push(...known.tools);
+    }
+    return out;
+  }
+
+  /** AI-013, AI-014: the user sees the server, the tool and what is sent, and lets it go once or for the session. */
+  private approve(ref: McpServerRef, server: McpServer, tool: string, input: Record<string, unknown>): Promise<boolean> {
+    const key = `${ref.id}/${tool}`;
+    if (this.allowed.has(key)) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const dialog = h('dialog', { class: 'dialog', 'aria-labelledby': 'mcp-call-title' });
+      const finish = (ok: boolean, session = false): void => {
+        if (ok && session) this.allowed.add(key);
+        dialog.close();
+        dialog.remove();
+        resolve(ok);
+      };
+      const args = JSON.stringify(input, null, 2);
+      dialog.append(
+        h('h2', { id: 'mcp-call-title' }, t('ai.mcp.callTitle')),
+        h('p', {}, t('ai.mcp.callMessage', { tool, server: ref.name, host: hostOf(server.url) })),
+        h('pre', { class: 'ai-mcp-args' }, args.length > 4000 ? `${args.slice(0, 4000)}…` : args),
+        h(
+          'div',
+          { class: 'dialog-actions' },
+          button(t('common.cancel'), () => finish(false)),
+          button(t('ai.mcp.allowSession'), () => finish(true, true)),
+          button(t('ai.mcp.allowOnce'), () => finish(true), { className: 'primary' }),
+        ),
+      );
+      dialog.addEventListener('cancel', (e) => {
+        e.preventDefault();
+        finish(false);
+      });
+      document.body.append(dialog);
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      else dialog.setAttribute('open', '');
+    });
   }
 
   private toggleSetup(): void {
@@ -143,11 +283,14 @@ export class AssistantPanel {
       urlRow,
       h('label', {}, t('ai.model'), model),
       effortRow,
+      this.buildMcp(),
       h(
         'div',
         { class: 'dialog-actions' },
         button(t('ai.forget'), () => {
           forgetApiKey();
+          forgetMcpTokens();
+          this.mcp.clear();
           settings = loadAiSettings();
           remember.checked = false;
           show();
@@ -224,7 +367,7 @@ export class AssistantPanel {
     try {
       const common = {
         system: systemPrompt(ctx.kind, ctx.name, getLocale()),
-        tools: ctx.tools,
+        tools: [...ctx.tools, ...(await this.mcpTools())],
         prompt,
         signal: controller.signal,
         onText: (delta: string) => {

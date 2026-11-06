@@ -81,6 +81,30 @@ equation after the second paragraph”*.
   retried automatically on a recommended fallback model (server-side
   fallback); otherwise the assistant says so.
 
+## MCP servers: tools of other services
+
+The assistant can also use the tools of remote **MCP servers** (Model
+Context Protocol) — a glossary, a search engine, a database of your own…
+In **⚙ → MCP servers**, give a **name**, the **address** of the server
+(`https://…`; `http://` only on this computer) and, if it asks for one, a
+**token**, then **Add and check**: the server is added only once it answered
+and listed its tools.
+
+- Tick or untick a server to use it or not; **×** removes it. The servers in
+  use are shown under the title of the assistant (*MCP: …*).
+- Their tools are named after their server (`mcp_glossary__lookup`), beside
+  the tools of the document.
+- **Each call is shown first**: the server, the tool and exactly what is sent
+  to it. **Allow once**, **Allow this tool for the session**, or **Cancel**.
+  Nothing of the document goes to a server otherwise.
+- The token is kept only for the session unless you tick **Remember the token
+  in this browser**; **Forget the key** forgets the tokens too.
+- A server whose answers are not valid is no longer used in the session.
+
+The server must accept calls from a web page (CORS) and speak the
+*Streamable HTTP* transport; local servers started by a command (stdio) are
+out of reach of a web application.
+
 ## WebMCP: tools for other AI agents
 
 When the browser exposes the experimental **WebMCP** API
