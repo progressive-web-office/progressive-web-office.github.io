@@ -10,6 +10,12 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
 
 ### Added
 
+- **MCP servers for the assistant** (AI-012..AI-014): remote MCP servers
+  (Streamable HTTP, HTTPS, optional token kept only if asked) are added after
+  a check, turned on or off and removed; their tools, named after their
+  server, are offered to the assistant, each call shown with what it sends
+  and approved once or for the session; a server whose answers are not valid
+  is no longer used.
 - **AI agents on PDF files and folders** (AI-010, AI-011): the assistant and
   the agents reached through WebMCP read the pages of a PDF file, list and
   fill its form fields (only with values they accept), list its
