@@ -340,6 +340,11 @@ any other tool. Planned, the most useful first:
   (DEVSYNC-001..005), the trash in the window (DEVSYNC-009), revoking one
   device only (DEVSYNC-010), templates synchronised (DEVSYNC-012); recent
   files stay on their device (copies would change apart)
+- ✅ Pseudonymisation of documents before sharing them, on the device, with
+  an encrypted mapping table, an output check and re-identification
+  (PSEUDO-001..PSEUDO-033); next: the assistant's pseudonymised mode
+  (PSEUDO-031), a rasterised PDF copy (PSEUDO-024), picture metadata
+  removed (PSEUDO-034)
 - ✅ Real backups, distinct from synchronisation: dated, encrypted archives of
   all the documents kept in the browser, to a folder or a WebDAV / Nextcloud
   account, with reminders, kept for days and weeks, restored file by file or

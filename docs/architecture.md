@@ -35,6 +35,9 @@ src/
   vault/      vaults of passwords: KDBX 4 (kdbxweb, Argon2 by hash-wasm), TOTP
   datamodel/  data models: conceptual, logical, SQL
   sqlite/     SQLite databases as documents (SQLite in the code sandbox)
+  pseudo/     pseudonymisation of documents before sharing: hardened ZIP/XML
+              reading, detection engine, package/text/PDF adapters, output
+              check, mapping table (KDBX), re-identification, its window
 schemas/      JSON Schemas (MDZ manifest)
 e2e/          Playwright end-to-end tests
 ```
@@ -90,6 +93,11 @@ downloaded when a PDF is opened.
 - AI tools validate every model-provided input before running; WebMCP tool
   calls that modify a document need the user's approval.
 - The UI is built with DOM APIs (no `innerHTML` with untrusted content).
+- The pseudonymisation (`src/pseudo/`, [design note](design/pseudonymisation.md))
+  makes no network request (a test checks its sources and spies on the
+  network APIs), reads untrusted packages with its own limits (zip bombs,
+  lying sizes, entry names, document type declarations refused) and keeps the
+  mapping table only encrypted.
 
 ## Spreadsheets
 

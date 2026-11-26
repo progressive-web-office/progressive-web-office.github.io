@@ -66,6 +66,10 @@ docs:
 sync-spec:
     node scripts/sync-requirements.mjs
 
+# Write the synthetic test sets of the pseudonymisation to a folder (to open them by hand)
+pseudo-fixtures dir='/tmp/pseudo-fixtures':
+    node tests/pseudo-fixtures.ts {{dir}}
+
 # Live-preview the documentation
 docs-dev:
     npm run docs:dev

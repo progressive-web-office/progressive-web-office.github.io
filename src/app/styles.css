@@ -2216,3 +2216,22 @@ button[data-icon]:not(.card):not(.template-card):not(.template-tab):not(.start-l
   text-align: center;
   margin: 0;
 }
+
+/* PSEUDO: pseudonymisation window and report */
+.dialog.pseudo-dialog { width: min(760px, calc(100vw - 32px)); max-width: none; max-height: calc(100vh - 32px); overflow: auto; }
+.pseudo-step { border-top: 1px solid var(--border); padding-top: 8px; margin-top: 8px; display: grid; gap: 6px; }
+.pseudo-step h3 { margin: 0; font-size: 1rem; }
+.pseudo-check { display: flex; gap: 6px; align-items: baseline; }
+.pseudo-notice { display: grid; gap: 6px; padding-left: 1.2em; }
+.pseudo-report { display: grid; gap: 6px; }
+.pseudo-file { border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 8px; }
+.pseudo-file summary { cursor: pointer; }
+.pseudo-file h4 { margin: 8px 0 2px; font-size: 0.95rem; }
+.pseudo-status { display: inline-block; padding: 0 6px; border-radius: 8px; font-size: 0.85rem; border: 1px solid var(--border); }
+.pseudo-status.pseudo-residues, .pseudo-status.pseudo-refused { background: var(--danger); color: #fff; border-color: var(--danger); }
+.pseudo-status.pseudo-check { background: #b36b00; color: #fff; border-color: #b36b00; }
+.pseudo-status.pseudo-clean { background: var(--bg); color: var(--text); }
+.pseudo-tocheck { list-style: none; padding: 0; display: grid; gap: 4px; }
+.pseudo-thumb { display: block; max-width: 160px; max-height: 120px; border: 1px solid var(--border); margin: 2px 0 0 24px; background: #fff; }
+.pseudo-expired { border-left: 3px solid var(--danger); padding-left: 8px; }
+.dialog-actions.start { justify-content: flex-start; flex-wrap: wrap; align-items: center; }

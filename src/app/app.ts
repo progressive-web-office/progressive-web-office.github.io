@@ -1891,6 +1891,12 @@ export class App {
     if (!exam) fileTools.push(button(t('git.open'), () => void this.openFromRepository(), { title: t('git.openTitle'), text: '⎇', className: 'icon' }));
     // FORM-002: the answers of filled forms, gathered in a spreadsheet.
     fileTools.push(button(t('form.compile'), () => void this.compileForms(), { title: t('form.compileTitle'), text: '📋', className: 'icon' }));
+    // PSEUDO-028..PSEUDO-030: pseudonymise before sharing, and put the names back in what comes back.
+    const pseudo = button(t('pseudo.menu'), () => void this.pseudonymise(), { title: t('pseudo.menuTitle'), text: '🎭', className: 'icon' });
+    pseudo.dataset.keywords = t('pseudo.keywords');
+    const reidentify = button(t('pseudo.reid.menu'), () => void this.reidentify(), { title: t('pseudo.reid.menuTitle'), text: '🔓', className: 'icon' });
+    reidentify.dataset.keywords = t('pseudo.keywords');
+    fileTools.push(pseudo, reidentify);
     if (doc?.view.save) {
       actions.append(button(t('file.save'), () => void this.save(), { className: 'keep', title: doc.source ? t('git.commitTitle') : doc.grist ? t('grist.saveTitle') : doc.dav ? t('dav.saveBackTitle', { path: doc.dav.path }) : t('file.saveTitle', { format: doc.format.toUpperCase() }) }));
       // FILE-025: the versions kept in this browser.
@@ -2832,6 +2838,57 @@ export class App {
       },
       theme: () => this.renderHeader(),
     }, category);
+  }
+
+  /** PSEUDO-028, PSEUDO-029: pseudonymise a copy of the open document, or a folder into an output folder. */
+  private async pseudonymise(): Promise<void> {
+    const doc = this.current;
+    let file: import('../pseudo/pipeline').InputFile | undefined;
+    if (doc && doc.view.save) {
+      const one = t('pseudo.choice.document', { name: doc.name });
+      const folder = t('pseudo.choice.folder');
+      const choice = await this.choose(t('pseudo.title'), t('pseudo.choice.message'), [one, folder], one, t('common.continue'));
+      if (!choice) return;
+      if (choice === one) {
+        file = await this.pseudonymisationSource(doc);
+        if (!file) return;
+      }
+    }
+    const { openPseudonymisation } = await import('../pseudo/ui/dialog');
+    await openPseudonymisation({
+      host: this.root,
+      ...(file ? { file } : {}),
+      notify: (message) => this.showNotice(message),
+      openOutput: async (name, bytes) => {
+        if ((await this.openBytes(name, bytes)) && this.current?.view.setReadOnly) this.setReadOnly(true);
+      },
+    });
+  }
+
+  /** PSEUDO-028: the file as stored; when the document has changes or no stored file, the user says which one. */
+  private async pseudonymisationSource(doc: OpenDocument): Promise<import('../pseudo/pipeline').InputFile | undefined> {
+    if (doc.folderPath && this.folder && !this.dirty) {
+      const provider = this.folder.provider;
+      const path = doc.folderPath;
+      const { readBytes } = await import('../fs');
+      return { name: doc.name, read: () => readBytes(provider, path) };
+    }
+    const pick = t('pseudo.source.pick');
+    const current = t('pseudo.source.current');
+    const choice = await this.choose(t('pseudo.title'), t(this.dirty ? 'pseudo.source.changed' : 'pseudo.source.none'), [pick, current], pick, t('common.continue'));
+    if (!choice) return undefined;
+    if (choice === current) {
+      const bytes = await doc.view.save!(doc.format);
+      return { name: doc.name, read: async () => bytes };
+    }
+    const picked = await pickFile();
+    return picked ? { name: picked.name, read: () => readFileBytes(picked) } : undefined;
+  }
+
+  /** PSEUDO-030: names back in place of the pseudonyms. */
+  private async reidentify(): Promise<void> {
+    const { openReidentification } = await import('../pseudo/ui/reidentify');
+    await openReidentification(this.root);
   }
 
   /** FORM-002: gather the answers of filled PDF forms (picked, or those of the open folder) into a new workbook. */
