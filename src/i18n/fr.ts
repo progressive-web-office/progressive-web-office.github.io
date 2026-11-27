@@ -3225,4 +3225,5 @@ export const fr: Record<MessageKey, string> = {
   'bases.unsupported': 'Non pris en charge ici — les notes que ces filtres écarteraient sont gardées, les colonnes affichent « non pris en charge », et le fichier les garde tels quels :',
   'bases.limited': 'Les {n} premières des {total} notes (limite de la vue).',
   'bases.notSupported': 'non pris en charge',
+  'settings.zoomActual': 'Taille réelle (100 %)',
 };

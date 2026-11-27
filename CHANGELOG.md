@@ -131,6 +131,15 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
 
 ### Changed
 
+- **A click follows a wiki link** (FOLDER-003): `[[note]]` links open their
+  note with a simple click, any link does while reading; Ctrl+click still
+  follows any link.
+- **PDF files and documents in review mode open at 100 %** (SET-002): the
+  default zoom is the actual size, *fit the width* and *whole page* being
+  choices; a percentage chosen in the toolbar is kept too.
+- **Callouts show the icon of their type** (MD-019) before their title, or
+  the name of the type when there is none, instead of the `[!TYPE]` marker,
+  shown only while the title line is edited.
 - The PDF viewer's text button reads *T Text*, as in the other editors
   (MARK-003).
 - The repository follows the [REUSE](https://reuse.software/) convention:

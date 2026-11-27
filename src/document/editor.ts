@@ -406,12 +406,14 @@ export class DocumentEditor implements EditorView {
         attributes: () => ({ role: 'textbox', 'aria-multiline': 'true', 'aria-label': t('doc.label'), spellcheck: 'true', class: 'doc-page', lang: this.lang() }),
         dispatchTransaction: (tr) => this.dispatch(tr),
         handlePaste: (_view, event) => this.onPaste(event),
-        // FOLDER-003: Ctrl+click follows a link (a relative one from the open folder).
+        // FOLDER-003: a click follows a link to a note (wiki link), and any link while reading; Ctrl+click follows any link.
         handleClick: (view, pos, event) => {
-          if (!(event.ctrlKey || event.metaKey)) return false;
           const mark = schema.marks.link!.isInSet(view.state.doc.resolve(pos).marks());
           const href = (event.target as HTMLElement).closest?.('a[href]:not(.xref)')?.getAttribute('href') ?? (mark?.attrs.href as string | undefined);
           if (!href || href.startsWith('#')) return false;
+          const reading = this.mode === 'reading' || this.readOnly || this.reviewing;
+          if (!(event.ctrlKey || event.metaKey) && !reading && !href.startsWith('wiki:')) return false;
+          if (event.shiftKey || event.altKey || event.button !== 0) return false;
           if (!this.ctx.openLink?.(href) && isSafeUrl(href)) window.open(href, '_blank', 'noopener');
           return true;
         },

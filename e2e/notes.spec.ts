@@ -52,6 +52,10 @@ test('notes: tasks, coloured code, comments, HTML blocks, folded callouts, embed
   await expect(html.locator('b')).toHaveText('gras');
   await expect(html.locator('script, [onclick]')).toHaveCount(0);
 
+  // MD-019: the icon of the type before the title, the marker hidden.
+  await expect(editor.locator('.callout-icon').first()).toHaveText('🔥');
+  await expect(editor.locator('.callout-marker').first()).toBeHidden();
+
   // MD-026: the folded callout, unfolded by a click.
   await expect(editor.getByText('contenu replié')).toBeHidden();
   await editor.locator('button.callout-fold').click();
@@ -80,8 +84,8 @@ test('notes: tasks, coloured code, comments, HTML blocks, folded callouts, embed
   await expect(page.locator('.doc-page .md-comment')).toBeHidden();
   await page.locator('.doc-mode-bar').getByRole('button', { name: 'Visual editing' }).click();
 
-  // MD-025: a link to a block opens the note at that block.
-  await page.locator('.doc-page').getByRole('link', { name: 'Cours > ^b1' }).click({ modifiers: ['Control'] });
+  // MD-025, FOLDER-003: a click on a link to a block opens the note at that block.
+  await page.locator('.doc-page').getByRole('link', { name: 'Cours > ^b1' }).click();
   await expect(page.locator('.doc-page h1')).toHaveText('Cours');
   await expect(page.locator('.doc-page .block-target')).toHaveText('Paragraphe cible');
   expect(errors).toEqual([]);

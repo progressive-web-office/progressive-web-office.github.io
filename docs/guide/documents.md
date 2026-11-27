@@ -818,7 +818,9 @@ document and read back when it is opened again:
 - **Callouts** (also called admonitions or alerts): a quote whose first line
   is `[!NOTE]`, `[!TIP]`, `[!WARNING]`, `[!DANGER]`… with an optional title
   and `+`/`-` (folding) is drawn as a coloured box, and written back as it
-  is. A callout written with `-` starts folded and `+` unfolded: a click on
+  is. The icon of its type comes before its title (or the name of the type
+  when there is no title); the `[!TYPE]` marker shows only while the title
+  line is edited. A callout written with `-` starts folded and `+` unfolded: a click on
   **▸**/**▾** before its title folds or unfolds it:
 
   ```md

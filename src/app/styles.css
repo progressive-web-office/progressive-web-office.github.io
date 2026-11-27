@@ -2263,3 +2263,7 @@ button[data-icon]:not(.card):not(.template-card):not(.template-tab):not(.start-l
 .doc-page .note-embed-open { border: 0; background: none; color: inherit; cursor: pointer; }
 .doc-page .note-embed-body img, .doc-page .note-embed-body video { max-width: 100%; }
 .doc-page .note-embed-body audio { width: 100%; }
+/* MD-019: a callout's icon before its title, its marker hidden unless the title line is edited */
+.doc-page .callout-marker { display: none; }
+.doc-page .callout-icon { margin-right: 0.35em; font-weight: normal; }
+.doc-page .callout-default-title { font-weight: 600; }

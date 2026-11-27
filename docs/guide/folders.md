@@ -111,7 +111,8 @@ A folder of Markdown notes works as a set of linked notes:
 - `[[Note]]` links to the note `Note.md` (in the same folder first, then
   anywhere in the folder, then by one of its `aliases:` in the front matter);
   `[[Note#Heading]]` goes to a heading, `[[Note#^id]]` to a block,
-  `[[Note|shown text]]` shows another text. <kbd>Ctrl</kbd>+click follows the link; a link to a note that does
+  `[[Note|shown text]]` shows another text. A click follows a wiki link (<kbd>Ctrl</kbd>+click follows any other link,
+  a click too while reading); a link to a note that does
   not exist yet offers to create it.
 - Typing `[[` lists the notes of the folder, those whose name starts with
   what you type first; typing `#` and a letter lists the tags already used.

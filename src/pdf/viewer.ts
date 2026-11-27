@@ -838,7 +838,8 @@ export class PdfViewer implements EditorView {
 
   private setZoom(zoom: PdfZoom): void {
     this.zoom = zoom;
-    if (typeof zoom !== 'number') rememberReading({ zoom });
+    // SET-002: a percentage is kept too.
+    rememberReading({ zoom });
     void this.layout();
   }
 

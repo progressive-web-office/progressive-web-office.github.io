@@ -131,7 +131,14 @@ function readingPanel(): HTMLElement[] {
   return [
     h('p', { class: 'hint' }, t('settings.readingHint')),
     field(t('pdf.pagesPerRow'), select(PAGES_PER_ROW.map((n) => [String(n), t(n === 1 ? 'pdf.onePage' : 'pdf.nPages', { n })]), String(r.perRow), (v) => set({ perRow: Number(v) }))),
-    field(t('settings.zoom'), select([['width', t('review.action.fitWidth')], ['page', t('review.action.fitPage')]], r.zoom, (zoom) => set({ zoom }))),
+    field(
+      t('settings.zoom'),
+      select(
+        [['1', t('settings.zoomActual')], ['width', t('review.action.fitWidth')], ['page', t('review.action.fitPage')], ...(typeof r.zoom === 'number' && r.zoom !== 1 ? [[String(r.zoom), `${Math.round(r.zoom * 100)} %`] as [string, string]] : [])],
+        String(r.zoom),
+        (zoom) => set({ zoom: zoom === 'width' || zoom === 'page' ? zoom : Number(zoom) }),
+      ),
+    ),
     field(t('review.flow'), select([['scroll', t('review.flowScroll')], ['pages', t('review.flowPages')]], r.flow, (flow) => set({ flow }))),
     field(t('settings.rememberLast'), check(r.rememberLast, (rememberLast) => set({ rememberLast })), t('settings.rememberLastHint')),
     field(t('settings.review'), check(r.review, (review) => set({ review })), t('settings.reviewHint')),
