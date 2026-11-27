@@ -152,6 +152,11 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
 
 ### Fixed
 
+- **Links find their file** (FOLDER-033): wiki links, embeds, pictures and the
+  file cards of canvases look for the file relative to the file naming it,
+  then from the root of the folder, then by the end of its path (notes kept
+  in a folder of a ZIP archive), then by its name — the nearest. A canvas
+  card no longer says *file not found* for a note of the archive.
 - The "&" label of the IEC AND and NAND gates was written unescaped, making
   the SVG of a drawing holding one invalid XML.
 

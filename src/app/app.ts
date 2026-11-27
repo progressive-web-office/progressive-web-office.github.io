@@ -1151,16 +1151,8 @@ export class App {
         const from = this.current?.folderPath ?? '';
         const note = !/\.[a-z0-9]{1,5}$/i.test(target) || /\.(md|markdown)$/i.test(target);
         let path = note ? await folder.vault.resolve(target.replace(/\.(md|markdown)$/i, ''), from) : undefined;
-        if (!path && !note) {
-          // Next to the note, else by its name anywhere in the folder, as pictures are found (MD-018).
-          const near = fs.resolve(fs.dirname(from), target);
-          if (await fs.exists(folder.provider, near)) path = near;
-          else {
-            const all = await fs.listFiles(folder.provider);
-            const lower = target.toLowerCase();
-            path = all.find((p) => p.toLowerCase() === lower || p.toLowerCase().endsWith(`/${lower}`));
-          }
-        }
+        // FOLDER-033: relative to the note, from the root, by its end, by its name — the nearest.
+        if (!path && !note) path = fs.findPath(target, from, await fs.listFiles(folder.provider));
         return path ? { path, bytes: await fs.readBytes(folder.provider, path) } : undefined;
       },
       readFolderFile: async (path) => {

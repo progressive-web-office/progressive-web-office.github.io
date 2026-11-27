@@ -81,10 +81,18 @@ describe('CANVAS-001 a canvas shown', () => {
 });
 
 describe('CANVAS-002 opening files and links', () => {
-  it('opens the file of a file card relative to the canvas', () => {
-    const { view, ctx } = open(SAMPLE, folder({}));
+  it('opens the file of a file card relative to the canvas', async () => {
+    const { view, ctx } = open(SAMPLE, folder({ 'Notes/Plan.md': '# Plan' }));
     view.openFile(view.canvas.nodes[2]!);
-    expect(ctx.openLink).toHaveBeenCalledWith('../Notes/Plan.md');
+    await vi.waitFor(() => expect(ctx.openLink).toHaveBeenCalledWith('../Notes/Plan.md'));
+  });
+
+  it('finds the file of a card whose path starts at the root of notes kept in a folder (FOLDER-033)', async () => {
+    const project = { ...folder({ 'Vault/Notes/Plan.md': '# Plan from the vault', 'Vault/Boards/plan.canvas': '' }), path: 'Vault/Boards/plan.canvas' };
+    const { view, ctx, el } = open(SAMPLE, project);
+    await vi.waitFor(() => expect(el.textContent).toContain('Plan from the vault'));
+    view.openFile(view.canvas.nodes[2]!);
+    await vi.waitFor(() => expect(ctx.openLink).toHaveBeenCalledWith('../Notes/Plan.md'));
   });
   it('finds the path of a file seen from a folder', () => {
     expect(relativePath('Boards', 'Notes/Plan.md')).toBe('../Notes/Plan.md');

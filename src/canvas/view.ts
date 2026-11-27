@@ -9,6 +9,7 @@ import { button, h } from '../app/dom';
 import { attachZoomPan, zoomAt } from '../app/zoom-pan';
 import type { EditorView, ProjectSource, ViewContext } from '../app/views';
 import { t, type MessageKey } from '../i18n';
+import { findPath } from '../fs/path';
 import {
   arrowHead,
   bounds,
@@ -181,6 +182,15 @@ export class CanvasView implements EditorView {
     return this.ctx.folderProject?.();
   }
 
+  /** The files of the folder, listed once. */
+  private files: Promise<string[]> | undefined;
+
+  /** FOLDER-033: the file a node names, found as links are (relative, from the root, by its end, by its name). */
+  private async locate(project: ProjectSource, path: string): Promise<string | undefined> {
+    this.files ??= project.walk('').then((list) => list.map((f) => f.path)).catch(() => []);
+    return findPath(path, project.path, await this.files, ['.md']);
+  }
+
   private rectOf(n: Rect): Rect {
     return { x: n.x - this.offset.x, y: n.y - this.offset.y, width: n.width, height: n.height };
   }
@@ -313,8 +323,11 @@ export class CanvasView implements EditorView {
     const project = this.project();
     if (!project) body.append(h('p', { class: 'hint' }, t('canvas.noFolder')));
     else if (PICTURE.test(path) || NOTE.test(path)) {
-      void project
-        .read(path)
+      void this.locate(project, path)
+        .then((found) => {
+          if (!found) throw new Error('missing');
+          return project.read(found);
+        })
         .then((bytes) => {
           if (PICTURE.test(path)) {
             const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: MIME[path.split('.').pop()!.toLowerCase()] ?? 'application/octet-stream' }));
@@ -331,7 +344,9 @@ export class CanvasView implements EditorView {
     const project = this.project();
     if (!project || typeof node.background !== 'string' || !PICTURE.test(node.background)) return;
     try {
-      const bytes = await project.read(node.background);
+      const found = await this.locate(project, node.background);
+      if (!found) return;
+      const bytes = await project.read(found);
       const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: MIME[node.background.split('.').pop()!.toLowerCase()] ?? 'application/octet-stream' }));
       this.urls.push(url);
       el.style.backgroundImage = `url("${url}")`;
@@ -680,8 +695,12 @@ export class CanvasView implements EditorView {
   openFile(node: CanvasNode): void {
     const project = this.project();
     if (!project || typeof node.file !== 'string') return void this.ctx.notify?.(t('canvas.noFolder'));
-    const rel = relativePath(dirname(project.path), node.file);
-    if (!this.ctx.openLink?.(encodeURI(rel))) this.ctx.notify?.(t('canvas.noFolder'));
+    const file = node.file;
+    void this.locate(project, file).then((found) => {
+      if (!found) return void this.ctx.notify?.(t('canvas.missing', { name: file }));
+      const rel = relativePath(dirname(project.path), found);
+      if (!this.ctx.openLink?.(encodeURI(rel))) this.ctx.notify?.(t('canvas.noFolder'));
+    });
   }
 
   openUrl(url: string): void {
