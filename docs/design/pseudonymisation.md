@@ -1,13 +1,13 @@
 ---
 search: false
-description: Design note — local pseudonymisation of documents before they are shared (with a person, an examination board, a researcher or an AI assistant), and re-identification of what comes back (PSEUDO-001..PSEUDO-040).
+description: Design note — local pseudonymisation of documents before they are shared (with a person, an examination board, a researcher or an AI assistant), and re-identification of what comes back (PSEUDO-001..PSEUDO-042).
 ---
 
 # Pseudonymisation of documents (design note)
 
 - Status: **implemented** (`src/pseudo/`), except the assistant's pseudonymised mode (PSEUDO-031), the rasterised PDF (PSEUDO-024) and the removal of picture metadata (PSEUDO-034)
 - User guide: [Pseudonymising documents](../guide/pseudonymisation)
-- Requirements: [PSEUDO-001..PSEUDO-040](../requirements#_9ze-pseudonymisation-pseudo)
+- Requirements: [PSEUDO-001..PSEUDO-042](../requirements#_9ze-pseudonymisation-pseudo)
 - Scope: text documents, spreadsheets, presentations, Markdown and text
   files, PDF; one document or a folder; optionally, the AI assistant
 - Delivery: **one pull request, one commit** (§16)
@@ -660,8 +660,16 @@ The dialog has five steps:
    zeros). The columns chosen are remembered for the same headers
    (`pwo.pseudo.columns`: headers only). Databases are left for later
    (PSEUDO-040).
-2. **Table**: open a KDBX file, or create one with its deletion date and
-   password.
+2. **Table** (PSEUDO-041, PSEUDO-042): *Create a new table* (the default
+   when none is kept in this browser: prefix, deletion date, password typed
+   twice), *Open a table (.kdbx)* or *Use the table kept in this browser*.
+   Where the File System Access API exists, *Create the table…* asks for the
+   file at once (`showSaveFilePicker`) and writes the empty table there; an
+   opened table keeps its handle (`showOpenFilePicker`), writing being asked
+   from the click that opens it. After each run the table is written to its
+   file (`src/pseudo/table-file.ts`), or to its copy in the browser, without
+   asking; otherwise *Save the table…* downloads it and closing warns while
+   it is not saved.
 3. **Options**: last names alone (on), first names alone (off), pictures
    kept or removed, linkable identifiers removed (on), exclusions and labels.
 4. **Files**: the open document (a), or the input and output folders (b).

@@ -60,6 +60,9 @@ test.describe('PSEUDO-028 pseudonymise a copy of the open document', () => {
     await acknowledgeNotice(page);
     const dialog = page.getByRole('dialog', { name: 'Pseudonymisation' });
     await chooseList(page, dialog);
+    // PSEUDO-041: this browser cannot write a file in place: the table is saved after the run.
+    await expect(dialog.getByLabel('Create a new table')).toBeChecked();
+    await expect(dialog.getByText(/after the run you save it with “Save the table…”/)).toBeVisible();
     await dialog.getByLabel('Password of the table', { exact: true }).fill(PASSWORD);
     await dialog.getByLabel('Password again').fill(PASSWORD);
     await dialog.getByRole('button', { name: 'Pseudonymise', exact: true }).click();
@@ -244,6 +247,87 @@ test.describe('PSEUDO-004 PSEUDO-036 PSEUDO-037 a list in a spreadsheet', () => 
     await expect(dialog.getByText('Choose the column of the last names (or of the full names).')).toBeVisible();
     await dialog.getByLabel('Sheet').selectOption({ label: 'Liste' });
     await expect(dialog.getByText('16 people read from list.ods.')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('PSEUDO-041 PSEUDO-042 the mapping table and its file', () => {
+  test('a new table gets its file when it is created, and is updated there after each run, opened again too', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    // File pickers kept in memory: the table file written in place.
+    await page.addInitScript(() => {
+      const files = new Map<string, Uint8Array>();
+      (window as unknown as { __files: Map<string, Uint8Array> }).__files = files;
+      const handle = (name: string) => ({
+        kind: 'file',
+        name,
+        getFile: async () => new Blob([(files.get(name) ?? new Uint8Array()) as BlobPart]),
+        createWritable: async () => ({ write: async (d: Uint8Array) => void files.set(name, new Uint8Array(d)), close: async () => {} }),
+        queryPermission: async () => 'granted',
+        requestPermission: async () => 'granted',
+      });
+      const w = window as unknown as Record<string, unknown>;
+      w.showSaveFilePicker = async (o: { suggestedName?: string; types?: unknown }) => {
+        // Only the table goes through this picker in this test.
+        if (!o.types) throw Object.assign(new Error('cancelled'), { name: 'AbortError' });
+        return handle('classe.kdbx');
+      };
+      w.showOpenFilePicker = async () => [handle('classe.kdbx')];
+    });
+    await page.goto('./');
+    await expect(page.getByRole('heading', { name: 'Progressive Web Office' })).toBeVisible();
+    const outside = await blockNetwork(page);
+    const run = async (doc: string, first: boolean): Promise<ReturnType<Page['getByRole']>> => {
+      await openFile(page, 'notes.md', `${doc}\n`);
+      await expect(page.locator('.doc-page')).toContainText(doc.split(':')[0]!);
+      await page.getByRole('button', { name: 'Pseudonymise…' }).click();
+      const choice = page.getByRole('dialog', { name: 'Pseudonymisation' });
+      await choice.getByLabel('A copy of “notes.md”').check();
+      await choice.getByRole('button', { name: 'Continue' }).click();
+      await choice.getByLabel('Use the document as it is now').check();
+      await choice.getByRole('button', { name: 'Continue' }).click();
+      if (first) await acknowledgeNotice(page);
+      const dialog = page.getByRole('dialog', { name: 'Pseudonymisation' });
+      await chooseList(page, dialog);
+      return dialog;
+    };
+
+    // 1. A new table: chosen by default, its file chosen when it is created.
+    let dialog = await run('Nom : Théo Petit', true);
+    await expect(dialog.getByLabel('Create a new table')).toBeChecked();
+    await expect(dialog.getByText(/in a \.kdbx file that you choose now/)).toBeVisible();
+    await dialog.getByLabel('Password of the table', { exact: true }).fill(PASSWORD);
+    await dialog.getByLabel('Password again').fill(PASSWORD);
+    await dialog.getByRole('button', { name: 'Create the table…' }).click();
+    await expect(dialog.getByText('Table created in classe.kdbx: it will be updated there after each run.')).toBeVisible({ timeout: 20_000 });
+    const created = await page.evaluate(() => (window as unknown as { __files: Map<string, Uint8Array> }).__files.get('classe.kdbx')?.length ?? 0);
+    expect(created).toBeGreaterThan(0);
+    await dialog.getByRole('button', { name: 'Pseudonymise', exact: true }).click();
+    await expect(dialog.getByText(/The table was updated in classe\.kdbx\./)).toBeVisible({ timeout: 20_000 });
+    await expect(dialog.getByRole('button', { name: 'Save the table…' })).toHaveCount(0);
+    // Closing does not warn: the table is saved.
+    await dialog.getByRole('button', { name: 'Close' }).click();
+    await expect(dialog).toBeHidden();
+
+    // 2. The table opened again, updated in its own file.
+    dialog = await run('Rédigé par : Inès Blanc', false);
+    await dialog.getByLabel('Open a table (.kdbx)').check();
+    await dialog.getByRole('button', { name: 'Open a table…' }).click();
+    const ask = page.getByRole('dialog', { name: 'Password of classe.kdbx' });
+    await ask.getByLabel('Password of the table').fill(PASSWORD);
+    await ask.getByRole('button', { name: 'Open' }).click();
+    await expect(dialog.getByText(/Table classe\.kdbx: 16 people.*It will be updated in its file after each run\./)).toBeVisible({ timeout: 20_000 });
+    await dialog.getByRole('button', { name: 'Pseudonymise', exact: true }).click();
+    await expect(dialog.getByText(/The table was updated in classe\.kdbx\./)).toBeVisible({ timeout: 20_000 });
+
+    // The file holds both runs.
+    const bytes = await page.evaluate(() => [...(window as unknown as { __files: Map<string, Uint8Array> }).__files.get('classe.kdbx')!]);
+    const { openTable } = await import('../src/pseudo/table');
+    const table = await openTable(Uint8Array.from(bytes), PASSWORD);
+    expect(table.people).toHaveLength(16);
+    expect(table.files).toHaveLength(2);
+    expect(outside).toEqual([]);
     expect(errors).toEqual([]);
   });
 });

@@ -53,10 +53,17 @@ first use, and must be acknowledged.
    When numbers come from number cells, check that none lost its leading
    zeros (format the column as text in the spreadsheet). The columns you
    choose are proposed again for a list with the same headers.
-3. **Open a table** (`.kdbx`) or fill in a new one.
+3. Choose the **mapping table**: *Create a new table* (prefix of the
+   pseudonyms, deletion date, password typed twice), *Open a table
+   (.kdbx)*, or *Use the table kept in this browser*. Where the browser can
+   write files (Chrome, Edge), *Create the table…* asks where to save the
+   `.kdbx` file right away.
 4. Set the **options** (see below), then **Pseudonymise**.
-5. Read the **report**, check what it lists, and **save the table**. Keep
-   it apart from the documents; never send it.
+5. Read the **report** and check what it lists. The table is **written again
+   in its file** after each run (where the browser can write files, and once
+   you allowed it for an opened table); otherwise, **save the table** with
+   *Save the table…* — the window warns before closing while it is not
+   saved. Keep it apart from the documents; never send it.
 
 For a folder, the output folder must be empty and must be neither the
 folder of the documents nor inside it (nor contain it). The list, mapping
@@ -130,6 +137,7 @@ are not in the table are listed and left as they are.
 
 ## The mapping table
 
+- It is created from the window itself — no file is needed beforehand.
 - It is a **KDBX 4** file (the format of KeePass and KeePassXC), encrypted
   with your password (Argon2id). Each person is an entry named after their
   pseudonym; the files and reports of the runs are kept with them.
