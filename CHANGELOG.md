@@ -24,6 +24,13 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
   check visually. The mapping table is an encrypted KDBX file with a
   deletion date; *🔓 Re-identify…* puts the names back in a text or a file.
   A notice must be acknowledged first.
+- **Lists of people from spreadsheets** (PSEUDO-004, PSEUDO-036..PSEUDO-039):
+  the list given to the pseudonymisation may be an Excel workbook, an
+  OpenDocument spreadsheet or the open spreadsheet, as well as a CSV file;
+  the sheet, the header row and the columns are chosen in the window (names
+  in two columns or in one, with their order), the people are shown as they
+  will be read, and the columns chosen are proposed again for the same
+  headers.
 - **AI agents on PDF files and folders** (AI-010, AI-011): the assistant and
   the agents reached through WebMCP read the pages of a PDF file, list and
   fill its form fields (only with values they accept), list its

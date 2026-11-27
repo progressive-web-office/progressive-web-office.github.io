@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { en } from '../src/i18n/en';
 import { fr } from '../src/i18n/fr';
 import { zh } from '../src/i18n/zh';
-import { acknowledgeNotice, loadOptions, noticeAcknowledged, NOTICE_VERSION, parseList, saveOptions } from '../src/pseudo/settings';
+import { acknowledgeNotice, loadOptions, noticeAcknowledged, NOTICE_VERSION, parseList, rememberColumns, rememberedColumns, saveOptions } from '../src/pseudo/settings';
 import { excludedInput, folderFiles, folderProblem, MARKER, type FileEntryHandle, type FolderHandle } from '../src/pseudo/folders';
 import { forgetTable, rememberedTable, rememberTable } from '../src/pseudo/table';
 import { DEFAULT_OPTIONS } from '../src/pseudo/pipeline';
@@ -112,5 +112,17 @@ describe('PSEUDO-029 input and output folders', () => {
     const root = tree({ 'a.docx': '', 'sub/b.odt': '', 'liste.csv': '', 'table.kdbx': '', 'ETU-012.docx': '', 'ETU-012_ETU-047.odt': '', 'copy-003.pdf': '', '.hidden.docx': '', '~$a.docx': '', [MARKER]: '' });
     const files = await folderFiles(root, (p) => excludedInput(p, 'liste.csv', 'ETU-'));
     expect(files.map((f) => f.path)).toEqual(['a.docx', 'sub/b.odt']);
+  });
+});
+
+describe('PSEUDO-038 columns remembered for the same headers', () => {
+  beforeEach(() => localStorage.clear());
+  it('proposes again the columns chosen for lists with the same headers, keeping only the headers', () => {
+    const headers = ['N° étudiant', 'NOM Prénom', 'Courriel'];
+    expect(rememberedColumns(headers)).toBeUndefined();
+    rememberColumns(headers, { header: 2, fullName: 1, order: 'last-first', email: 2, number: 0 });
+    expect(rememberedColumns(['n° ETUDIANT', 'nom prénom ', 'courriel'])).toEqual({ fullName: 1, order: 'last-first', email: 2, number: 0 });
+    expect(rememberedColumns(['Nom', 'Prénom'])).toBeUndefined();
+    expect(localStorage.getItem('pwo.pseudo.columns')).not.toMatch(/Martin|Léa/);
   });
 });

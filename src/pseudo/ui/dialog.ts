@@ -14,11 +14,11 @@ import type { Markers, Person } from '../engine';
 import { excludedInput, folderFiles, folderProblem, MARKER, writeOutput, type FolderHandle } from '../folders';
 import { writePackage } from '../package/zip';
 import { pseudonymiseFiles, reportJson, type FileReport, type InputFile, type RunReport } from '../pipeline';
-import { readRoster, RosterError, type Roster } from '../roster';
 import { loadOptions, parseList, saveOptions } from '../settings';
 import { assignPseudonyms, expired, forgetTable, newTable, openTable, rememberedTable, rememberTable, saveTable, type PseudonymTable } from '../table';
 import { ensureNotice, showNotice } from './notice';
 import { renderReport } from './report';
+import { createListStep } from './list';
 
 export interface PseudoHost {
   host: HTMLElement;
@@ -27,6 +27,8 @@ export interface PseudoHost {
   notify(message: string): void;
   /** Open an output in the application, read-only. */
   openOutput(name: string, bytes: Uint8Array): Promise<void>;
+  /** PSEUDO-039: the open spreadsheet, offered as the list of people. */
+  openSpreadsheet?: { name: string; read(): Promise<Uint8Array> };
 }
 
 export function markers(): Markers {
@@ -69,15 +71,11 @@ const HANDLED = /\.(pdf|docx|dotx|odt|ott|xlsx|xltx|ods|ots|pptx|potx|odp|otp|md
 
 const sameBytes = (a: Uint8Array, b: Uint8Array): boolean => a.length === b.length && a.every((x, i) => x === b[i]);
 
-const refusalText = (e: RosterError): string => t(`pseudo.list.${e.problem}` as MessageKey, { detail: e.detail });
 
 export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
   if (!(await ensureNotice(ctx.host))) return;
   const options = loadOptions();
   const picker = (window as unknown as DirectoryPickerWindow).showDirectoryPicker;
-  let roster: Roster | null = null;
-  let listName = '';
-  let listBytes = new Uint8Array();
   let table: PseudonymTable | null = null;
   let tableName = '';
   let tablePassword = '';
@@ -96,28 +94,7 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
   const status = h('p', { class: 'hint', role: 'status', 'aria-live': 'polite' });
 
   // 1. The list of people.
-  const listStatus = h('p', { class: 'hint' });
-  const listButton = button(t('pseudo.list.choose'), () => void chooseList());
-  async function chooseList(): Promise<void> {
-    const [file] = await pickFile('.csv,.tsv,.txt,text/csv');
-    if (!file) return;
-    try {
-      listBytes = new Uint8Array(await file.arrayBuffer());
-      roster = readRoster(listBytes);
-      listName = file.name;
-      const r = roster;
-      const sep = r.separator === '\t' ? t('pseudo.list.tab') : `« ${r.separator} »`;
-      listStatus.replaceChildren(
-        t('pseudo.list.read', { n: r.people.length, name: file.name, sep, encoding: r.encoding, columns: Object.values(r.columns).join(', ') }),
-        r.rejected.length ? h('br') : '',
-        r.rejected.length ? t('pseudo.list.rejected', { lines: r.rejected.map((x) => x.line).join(', ') }) : '',
-      );
-      listStatus.classList.remove('error');
-    } catch (e) {
-      roster = null;
-      setStatus(listStatus, e instanceof RosterError ? refusalText(e) : (e as Error).message, true);
-    }
-  }
+  const list = createListStep(async (accept) => (await pickFile(accept))[0], ctx.openSpreadsheet);
 
   // 2. The mapping table.
   const tableStatus = h('p', { class: 'hint' });
@@ -240,7 +217,7 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
     'div',
     {},
     h('p', { class: 'hint' }, t('pseudo.intro'), ' ', button(t('pseudo.notice.read'), () => void showNotice(dialog, false), { className: 'link' })),
-    section(t('pseudo.step.list'), h('p', { class: 'hint' }, t('pseudo.list.hint')), listButton, listStatus),
+    section(t('pseudo.step.list'), list.element),
     section(t('pseudo.step.table'), h('p', { class: 'hint' }, t('pseudo.table.hint')), tableButtons, tableStatus, expiredBox, newFields),
     section(
       t('pseudo.step.options'),
@@ -260,7 +237,6 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
     disposeReport();
     dialog.close();
     dialog.remove();
-    roster = null;
     table = null;
     report = null;
     people = [];
@@ -283,7 +259,10 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
   dialog.addEventListener('close', () => lockOff());
 
   async function start(): Promise<void> {
+    const roster = list.roster();
     if (!roster) return setStatus(status, t('pseudo.err.noList'), true);
+    const listName = list.file()?.name;
+    const listBytes = list.file()?.bytes ?? new Uint8Array();
     if (!table) {
       if (password.value.length < 10) return setStatus(status, t('pseudo.err.shortPassword'), true);
       if (password.value !== again.value) return setStatus(status, t('pseudo.err.mismatch'), true);
@@ -324,6 +303,7 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
     const opts = { ...options, lastNameAlone: lastAlone.checked, firstNameAlone: firstAlone.checked, removePictures: pictures.checked, removeLinkable: linkable.checked, exclusions: parseList(exclusions.value), labels: parseList(labels.value), commonWords: parseList(commons.value) };
     saveOptions(opts);
     people = assignPseudonyms(table, roster.people);
+    list.remember();
     tableDirty = true;
     run.disabled = true;
     controller = new AbortController();

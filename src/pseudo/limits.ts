@@ -5,8 +5,8 @@
 export const LIMITS = {
   /** A file to pseudonymise. */
   inputBytes: 50 * 1024 * 1024,
-  /** The list of people (CSV). */
-  listBytes: 1024 * 1024,
+  /** The list of people (CSV, XLSX, ODS). */
+  listBytes: 20 * 1024 * 1024,
   listLines: 5000,
   /** Entries of a package. */
   entries: 10_000,
