@@ -51,3 +51,33 @@ test('opens a canvas, adds a card, edits and connects it, undoes, and saves it a
   expect(saved.meta).toEqual({ version: '1.0' });
   expect(errors).toEqual([]);
 });
+
+test('a canvas of notes kept in a folder of a ZIP archive shows and opens the notes of its cards (FOLDER-033)', async ({ page }) => {
+  const { zipSync, strToU8 } = await import('fflate');
+  const errors = await openApp(page);
+  const board = JSON.stringify({
+    nodes: [
+      { id: 'a', type: 'file', file: 'Sessions/S1 sheet.md', x: 0, y: 0, width: 300, height: 200 },
+      { id: 'b', type: 'file', file: 'Index.md', x: 400, y: 0, width: 300, height: 200 },
+    ],
+    edges: [],
+  });
+  const zip = zipSync({
+    'Course/.settings/app.json': strToU8('{}'),
+    'Course/Boards/Map.canvas': strToU8(board),
+    'Course/Sessions/S1 sheet.md': strToU8('# Session one\n\nThe first session.\n'),
+    'Course/Index.md': strToU8('# Index\n\nSee [[S1 sheet]].\n'),
+  });
+  await openFile(page, 'course.zip', Buffer.from(zip), 'application/zip');
+  const panel = page.getByRole('complementary', { name: 'Folder' });
+  await panel.getByRole('button', { name: 'Boards' }).click();
+  await panel.getByRole('button', { name: 'Map.canvas' }).click();
+  const view = page.locator('.canvas-view');
+  await expect(view.locator('.canvas-node').first()).toContainText('The first session.');
+  await expect(view.locator('.canvas-node').nth(1)).toContainText('See');
+  await expect(view.getByText(/not found/i)).toHaveCount(0);
+  // Opening a card opens its note.
+  await view.locator('.canvas-file-name').first().dblclick();
+  await expect(page.locator('.doc-page h1')).toHaveText('Session one');
+  expect(errors).toEqual([]);
+});

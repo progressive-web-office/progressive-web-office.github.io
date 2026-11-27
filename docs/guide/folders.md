@@ -114,6 +114,14 @@ A folder of Markdown notes works as a set of linked notes:
   `[[Note|shown text]]` shows another text. A click follows a wiki link (<kbd>Ctrl</kbd>+click follows any other link,
   a click too while reading); a link to a note that does
   not exist yet offers to create it.
+- **How a link finds its file** — for wiki links, embeds (`![[…]]`),
+  pictures and the file cards of a canvas, in this order: the path relative
+  to the file naming it (`Sessions/S1.md`, `../Index.md`); the path from the
+  root of the folder; a file whose path ends with the path named (a vault
+  of notes kept in a folder of a ZIP archive names its files from its own
+  root); a file of the same name. When several files match, the nearest to
+  the file naming it wins: its own folder, then the most folders in common.
+  Names compare without case; a note may be named without `.md`.
 - Typing `[[` lists the notes of the folder, those whose name starts with
   what you type first; typing `#` and a letter lists the tags already used.
   <kbd>↑</kbd>/<kbd>↓</kbd> choose, <kbd>Enter</kbd> or <kbd>Tab</kbd>

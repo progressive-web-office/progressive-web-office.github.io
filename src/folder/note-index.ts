@@ -6,7 +6,7 @@
  * folder of thousands of notes stays light, and its links are found by name
  * at once instead of searching every note for each link.
  */
-import { readText, resolve as resolvePath, type StorageProvider } from '../fs';
+import { nearestPath, readText, resolve as resolvePath, type StorageProvider } from '../fs';
 import { frontMatterAliases, frontMatterId, noteId, noteName, parseWikiLinks } from '../document/wiki-links';
 import { noteTags } from './tags';
 import { parseFrontMatter } from '../document/frontmatter';
@@ -215,10 +215,8 @@ export class NoteIndex {
     const last = t.split('/').pop()!;
     let candidates = this.byName.get(last) ?? [];
     if (t.includes('/')) candidates = candidates.filter((n) => stemOf(n) === t || stemOf(n).endsWith(`/${t}`));
-    if (candidates.length) {
-      const dir = from.includes('/') ? from.slice(0, from.lastIndexOf('/') + 1) : '';
-      return candidates.find((c) => c.startsWith(dir) && !c.slice(dir.length).includes('/')) ?? [...candidates].sort((a, b) => a.split('/').length - b.split('/').length)[0];
-    }
+    // FOLDER-033: of several notes of that name, the nearest to the note linking (its folder first).
+    if (candidates.length) return nearestPath(candidates, from);
     const alias = this.byAlias.get(t);
     if (alias) return alias;
     if (/^\d{8,14}$/.test(t)) return this.byId.get(t);
