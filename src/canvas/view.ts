@@ -806,9 +806,12 @@ export class CanvasView implements EditorView {
     if (!d) return;
     if (d.kind === 'connect') {
       d.path.remove();
-      const over = (document.elementFromPoint?.(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>('.canvas-node');
-      const to = over ? this.doc.nodes.find((n) => n.id === over.dataset.id) : undefined;
-      if (to && to.id !== d.from.id) this.connect(d.from.id, d.side, to.id, nearestSide(to, this.worldPoint(e)));
+      // The card under the pointer, found on the plane: an edge or a label above it does not hide it.
+      const p = this.worldPoint(e);
+      const inside = (n: CanvasNode): boolean => n.id !== d.from.id && p.x >= n.x && p.x <= n.x + n.width && p.y >= n.y && p.y <= n.y + n.height;
+      const nodes = [...this.doc.nodes].reverse();
+      const to = nodes.find((n) => n.type !== 'group' && inside(n)) ?? nodes.find(inside);
+      if (to) this.connect(d.from.id, d.side, to.id, nearestSide(to, p));
       return;
     }
     if ((d.kind === 'move' || d.kind === 'resize') && d.moved) {
