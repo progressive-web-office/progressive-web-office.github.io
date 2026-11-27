@@ -92,3 +92,17 @@ test('the name of the settings signs comments and shows the user in a collaborat
   expect(asked).toBe(false);
   expect(errors).toEqual([]);
 });
+
+test('every file opens at the zoom of the settings, 100 % by default: a zoom of the toolbar is for the file open only (SET-002)', async ({ page }) => {
+  const errors = await openApp(page);
+  await openFile(page, 'notes.md', '# Notes\n\nSome text.\n', 'text/markdown');
+  await page.getByRole('button', { name: 'Review mode', exact: true }).click();
+  const bar = page.getByRole('toolbar', { name: 'Review' });
+  await expect(bar.locator('.zoom-label')).toHaveText('100%');
+  await bar.getByRole('button', { name: 'Fit to width' }).click();
+  await expect(bar.locator('.zoom-label')).not.toHaveText('100%');
+  await page.locator('.header-actions').getByRole('button', { name: 'Close' }).click();
+  await openFile(page, 'other.md', '# Other\n\nMore text.\n', 'text/markdown');
+  await expect(page.getByRole('toolbar', { name: 'Review' }).locator('.zoom-label')).toHaveText('100%');
+  expect(errors).toEqual([]);
+});

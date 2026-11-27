@@ -25,8 +25,12 @@ const FORMER_PDF_KEY = 'pwo.pdf.view';
 
 export const DEFAULT_READING: ReadingSettings = { perRow: 1, zoom: 1, flow: 'scroll', rememberLast: true, review: false };
 
-/** Settings written before the zoom could be a percentage held the old default, the width: it is no choice of the user's. */
-const ZOOM_VERSION = 2;
+/**
+ * SET-002: a zoom is only taken from the settings window. Settings written
+ * before (version 1 held the old default, the width; version 2 the last zoom
+ * of the toolbar) hold no choice of the user's: files open at 100 %.
+ */
+const ZOOM_VERSION = 3;
 
 function read(key: string): Record<string, unknown> | undefined {
   try {
@@ -43,7 +47,7 @@ export function loadReading(): ReadingSettings {
   const d = DEFAULT_READING;
   return {
     perRow: (PAGES_PER_ROW as readonly number[]).includes(v.perRow as number) ? (v.perRow as number) : d.perRow,
-    zoom: v.zoom === 'page' || (v.zoom === 'width' && v.zoomVersion === ZOOM_VERSION) ? v.zoom : typeof v.zoom === 'number' && v.zoom >= 0.1 && v.zoom <= 8 ? v.zoom : d.zoom,
+    zoom: v.zoomVersion !== ZOOM_VERSION ? d.zoom : v.zoom === 'page' || v.zoom === 'width' ? v.zoom : typeof v.zoom === 'number' && v.zoom >= 0.1 && v.zoom <= 8 ? v.zoom : d.zoom,
     flow: v.flow === 'pages' || v.flow === 'scroll' ? v.flow : d.flow,
     rememberLast: typeof v.rememberLast === 'boolean' ? v.rememberLast : d.rememberLast,
     // Formerly one setting for PDF files and one for documents.
@@ -62,7 +66,9 @@ export function saveReading(changes: Partial<ReadingSettings>): ReadingSettings 
   return next;
 }
 
-/** A choice made in the toolbar: it becomes the default when the user wants it to. */
-export function rememberReading(changes: Partial<Pick<ReadingSettings, 'perRow' | 'zoom' | 'flow'>>): void {
-  if (loadReading().rememberLast) saveReading(changes);
+/** A choice made in the toolbar: it becomes the default when the user wants it to. The zoom is not one (SET-002). */
+export function rememberReading(changes: Partial<Pick<ReadingSettings, 'perRow' | 'flow'>>): void {
+  if (!loadReading().rememberLast) return;
+  const { perRow, flow } = changes;
+  saveReading({ ...(perRow !== undefined ? { perRow } : {}), ...(flow !== undefined ? { flow } : {}) });
 }
