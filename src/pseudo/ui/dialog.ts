@@ -16,6 +16,7 @@ import { writePackage } from '../package/zip';
 import { pseudonymiseFiles, reportJson, type FileReport, type InputFile, type RunReport } from '../pipeline';
 import { loadOptions, parseList, saveOptions } from '../settings';
 import { assignPseudonyms, expired, forgetTable, newTable, openTable, rememberedTable, rememberTable, saveTable, type PseudonymTable } from '../table';
+import { allowWriting, canWriteFiles, chooseNewTableFile, chooseTableToOpen, writeTableFile, type TableFileHandle } from '../table-file';
 import { ensureNotice, showNotice } from './notice';
 import { renderReport } from './report';
 import { createListStep } from './list';
@@ -105,11 +106,50 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
   deleteAfter.value = newTable().deleteAfter;
   const keepReason = h('input', { type: 'text', 'aria-label': t('pseudo.table.keepReason') });
   const expiredBox = h('div', { class: 'pseudo-expired', hidden: true }, h('p', { class: 'hint error' }, t('pseudo.table.expired')), field(t('pseudo.table.keepReason'), keepReason));
-  const newFields = h('div', { class: 'pseudo-new-table' }, field(t('pseudo.table.prefix'), prefix), field(t('pseudo.table.deleteAfter'), deleteAfter), field(t('pseudo.table.password'), password, t('pseudo.table.passwordHint')), field(t('pseudo.table.passwordAgain'), again));
-  async function openTableFile(bytes: Uint8Array, name: string): Promise<void> {
+  // PSEUDO-041: create a new table, or open one; PSEUDO-042: its file, written in place where the browser can.
+  let tableHandle: TableFileHandle | null = null;
+  let fromKept = false;
+  const writes = canWriteFiles();
+  const createButton = writes ? button(t('pseudo.table.create'), () => void createTable(), { className: 'primary' }) : null;
+  const newFields = h(
+    'div',
+    { class: 'pseudo-new-table' },
+    field(t('pseudo.table.prefix'), prefix),
+    field(t('pseudo.table.deleteAfter'), deleteAfter),
+    field(t('pseudo.table.password'), password, t('pseudo.table.passwordHint')),
+    field(t('pseudo.table.passwordAgain'), again),
+    h('p', { class: 'hint' }, t(writes ? 'pseudo.table.newHintFile' : 'pseudo.table.newHintDownload')),
+    createButton ? h('div', { class: 'dialog-actions start' }, createButton) : null,
+  );
+  /** The new table from the fields, or a message saying what is wrong. */
+  function tableFromFields(): PseudonymTable | string {
+    if (password.value.length < 10) return t('pseudo.err.shortPassword');
+    if (password.value !== again.value) return t('pseudo.err.mismatch');
+    const p = prefix.value.trim() || 'ETU-';
+    if (!/^[\p{L}]{1,6}[-_]?$/u.test(p)) return t('pseudo.err.prefix');
+    const fresh = newTable(p);
+    if (deleteAfter.value) fresh.deleteAfter = deleteAfter.value;
+    return fresh;
+  }
+  async function createTable(): Promise<void> {
+    const fresh = tableFromFields();
+    if (typeof fresh === 'string') return setStatus(tableStatus, fresh, true);
+    const handle = await chooseNewTableFile(`${t('pseudo.table.fileName')}-${new Date().toISOString().slice(0, 10)}.kdbx`);
+    if (!handle) return;
+    setStatus(tableStatus, t('pseudo.table.saving'));
+    const bytes = await saveTable(fresh, password.value);
+    if (!(await writeTableFile(handle, bytes))) return setStatus(tableStatus, t('pseudo.table.updateFailed', { name: handle.name }), true);
+    table = fresh;
+    tablePassword = password.value;
+    tableName = handle.name;
+    tableHandle = handle;
+    showTable(t('pseudo.table.created', { name: handle.name }));
+  }
+  async function openTableFile(bytes: Uint8Array, name: string, handle?: TableFileHandle): Promise<void> {
     const pw = h('input', { type: 'password', autocomplete: 'current-password', 'aria-label': t('pseudo.table.password') });
     const ask = h('dialog', { class: 'dialog', 'aria-labelledby': 'pseudo-pw-title' });
     const err = h('p', { class: 'hint error', role: 'alert' });
+    let opened = false;
     const done = new Promise<void>((resolve) => {
       const close = (): void => {
         ask.close();
@@ -117,11 +157,15 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
         resolve();
       };
       const ok = async (): Promise<void> => {
+        // From the click: the browser may ask whether the file can be written (PSEUDO-042).
+        const writable = handle ? allowWriting(handle).catch(() => false) : Promise.resolve(false);
         setStatus(err, t('pseudo.table.opening'));
         try {
           table = await openTable(bytes, pw.value);
           tableName = name;
           tablePassword = pw.value;
+          tableHandle = handle && (await writable) ? handle : null;
+          opened = true;
           close();
         } catch {
           setStatus(err, t('pseudo.table.wrong'), true);
@@ -135,33 +179,70 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
     ask.showModal();
     pw.focus();
     await done;
-    showTable();
+    if (opened) showTable(t('pseudo.table.opened', { name: tableName, n: table!.people.length, date: table!.deleteAfter }) + (tableHandle ? ` ${t('pseudo.table.inPlace')}` : ''));
   }
-  function showTable(): void {
+  function showTable(message: string): void {
     if (!table) return;
-    newFields.hidden = true;
-    tableStatus.textContent = t('pseudo.table.opened', { name: tableName, n: table.people.length, date: table.deleteAfter });
+    choices.hidden = true;
+    panels.hidden = true;
+    tableStatus.textContent = message;
+    tableStatus.classList.remove('error');
     expiredBox.hidden = !expired(table);
   }
-  const tableButtons = h(
-    'div',
-    { class: 'dialog-actions start' },
-    button(t('pseudo.table.open'), async () => {
-      const [file] = await pickFile('.kdbx');
-      if (file) await openTableFile(new Uint8Array(await file.arrayBuffer()), file.name);
-    }),
-  );
   const kept = await rememberedTable().catch(() => null);
-  if (kept) {
-    tableButtons.append(
-      button(t('pseudo.table.useKept'), () => void openTableFile(kept, t('pseudo.table.keptName'))),
-      button(t('pseudo.table.forgetKept'), (e) => {
+  const openPanel = h(
+    'div',
+    { hidden: true },
+    h('p', { class: 'hint' }, t('pseudo.table.openHint')),
+    h('div', { class: 'dialog-actions start' }, button(t('pseudo.table.open'), async () => {
+      const chosen = await chooseTableToOpen(async () => (await pickFile('.kdbx'))[0]);
+      if (chosen) await openTableFile(chosen.bytes, chosen.name, chosen.handle);
+    })),
+  );
+  const keptPanel = h(
+    'div',
+    { hidden: true },
+    h('div', { class: 'dialog-actions start' },
+      button(t('pseudo.table.useKept'), async () => {
+        if (!kept) return;
+        fromKept = true;
+        await openTableFile(kept, t('pseudo.table.keptName'));
+        if (!table) fromKept = false;
+      }),
+      button(t('pseudo.table.forgetKept'), () => {
         forgetTable();
-        (e.currentTarget as HTMLElement).remove();
+        keptChoice?.remove();
+        keptPanel.hidden = true;
+        newChoice.click();
         ctx.notify(t('pseudo.table.forgotten'));
       }),
-    );
+    ),
+  );
+  const panels = h('div', {}, newFields, openPanel, keptPanel);
+  const choice = (value: 'new' | 'open' | 'kept', checked: boolean): HTMLInputElement => {
+    const radio = h('input', { type: 'radio', name: 'pseudo-table', value, checked });
+    radio.addEventListener('change', () => {
+      newFields.hidden = value !== 'new';
+      openPanel.hidden = value !== 'open';
+      keptPanel.hidden = value !== 'kept';
+    });
+    return radio;
+  };
+  const newChoice = choice('new', !kept);
+  const keptRadio = kept ? choice('kept', true) : null;
+  const keptChoice = keptRadio ? h('label', { class: 'pseudo-check' }, keptRadio, ` ${t('pseudo.table.modeKept')}`) : null;
+  const choices = h(
+    'div',
+    { role: 'radiogroup', 'aria-label': t('pseudo.step.table') },
+    h('label', { class: 'pseudo-check' }, newChoice, ` ${t('pseudo.table.modeNew')}`),
+    h('label', { class: 'pseudo-check' }, choice('open', false), ` ${t('pseudo.table.modeOpen')}`),
+    keptChoice,
+  );
+  if (kept) {
+    newFields.hidden = true;
+    keptPanel.hidden = false;
   }
+  const tableButtons = h('div', {}, choices, panels);
 
   // 3. Options.
   const lastAlone = check(t('pseudo.opt.lastAlone'), options.lastNameAlone);
@@ -218,7 +299,7 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
     {},
     h('p', { class: 'hint' }, t('pseudo.intro'), ' ', button(t('pseudo.notice.read'), () => void showNotice(dialog, false), { className: 'link' })),
     section(t('pseudo.step.list'), list.element),
-    section(t('pseudo.step.table'), h('p', { class: 'hint' }, t('pseudo.table.hint')), tableButtons, tableStatus, expiredBox, newFields),
+    section(t('pseudo.step.table'), h('p', { class: 'hint' }, t('pseudo.table.hint')), tableButtons, tableStatus, expiredBox),
     section(
       t('pseudo.step.options'),
       box(lastAlone),
@@ -264,12 +345,11 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
     const listName = list.file()?.name;
     const listBytes = list.file()?.bytes ?? new Uint8Array();
     if (!table) {
-      if (password.value.length < 10) return setStatus(status, t('pseudo.err.shortPassword'), true);
-      if (password.value !== again.value) return setStatus(status, t('pseudo.err.mismatch'), true);
-      const p = prefix.value.trim() || 'ETU-';
-      if (!/^[\p{L}]{1,6}[-_]?$/u.test(p)) return setStatus(status, t('pseudo.err.prefix'), true);
-      table = newTable(p);
-      if (deleteAfter.value) table.deleteAfter = deleteAfter.value;
+      const openChosen = !openPanel.hidden || !keptPanel.hidden;
+      if (openChosen) return setStatus(status, t('pseudo.err.noTable'), true);
+      const fresh = tableFromFields();
+      if (typeof fresh === 'string') return setStatus(status, fresh, true);
+      table = fresh;
       tablePassword = password.value;
       tableName = `${t('pseudo.table.fileName')}-${new Date().toISOString().slice(0, 10)}.kdbx`;
     } else if (expired(table)) {
@@ -331,15 +411,24 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
     }
     for (const f of outputs) table.files.push({ source: f.source, output: f.output, date: report.date.slice(0, 10), people: f.attribution.people.map((p) => p.key) });
     table.reports.push({ date: report.date, json: reportJson(report) });
-    showReport(outputs.length, !!outputDir);
+    // PSEUDO-042: the table written again where it was, without asking.
+    let saved = '';
+    if (tableHandle || fromKept) {
+      setStatus(status, t('pseudo.table.saving'));
+      const bytes = await saveTable(table, tablePassword);
+      if (tableHandle && (await writeTableFile(tableHandle, bytes))) saved = t('pseudo.table.updated', { name: tableHandle.name });
+      else if (!tableHandle && fromKept && (await rememberTable(bytes))) saved = t('pseudo.table.updated', { name: t('pseudo.table.keptName') });
+      if (saved) tableDirty = false;
+    }
+    showReport(outputs.length, !!outputDir, saved || (tableHandle ? t('pseudo.table.updateFailed', { name: tableHandle.name }) : t('pseudo.table.saveNow')));
   }
 
-  function showReport(n: number, written: boolean): void {
+  function showReport(n: number, written: boolean, tableNote: string): void {
     if (!report || !table) return;
     const view = renderReport(report, people, dialog, (f) => void ctx.openOutput(f.output!, f.outputBytes!));
     disposeReport = view.dispose;
     body.replaceChildren(view.element);
-    setStatus(status, written ? t('pseudo.done.written', { n }) : t('pseudo.done', { n }));
+    setStatus(status, `${written ? t('pseudo.done.written', { n }) : t('pseudo.done', { n })} ${tableNote}`);
     const lockSet = h('input', { type: 'checkbox' });
     const saveTableButton = button(t('pseudo.table.save'), async () => {
       setStatus(status, t('pseudo.table.saving'));
@@ -361,7 +450,7 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
         await saveFile(zip, `${t('pseudo.done.zipName')}.zip`, 'texzip', { mimeType: 'application/zip', extension: 'zip' });
       }
     });
-    actions.replaceChildren(button(t('common.close'), () => void close()), ...(written ? [] : [outputsButton]), saveTableButton);
+    actions.replaceChildren(button(t('common.close'), () => void close()), ...(written ? [] : [outputsButton]), ...(tableDirty ? [saveTableButton] : []));
     void import('../../lock/session').then((lock) => {
       if (lock.lockSet()) actions.prepend(h('label', { class: 'pseudo-check' }, lockSet, ` ${t('pseudo.table.keep')}`));
     });

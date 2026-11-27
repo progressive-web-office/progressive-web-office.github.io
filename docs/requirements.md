@@ -828,6 +828,8 @@ remain personal data while the mapping table exists.
 | PSEUDO-037 | S | 0.2.0 | Where the names of a list are in one column ("MARTIN Léa", "Léa Martin", "Martin, Léa"), the system shall let the user choose that column as the full name, with its order (last name first or first name first; words in capitals taken as the last name, a comma ending it), propose it when no first name column is found, and show how each row is split. |
 | PSEUDO-038 | S | 0.2.0 | The system shall remember in this browser the columns chosen for a given set of column headers (the headers only, never the rows) and propose them again for a list with the same headers. |
 | PSEUDO-039 | S | 0.2.0 | When the open document is a spreadsheet, the system shall offer it as the list of people, as it is shown, without saving it first. |
+| PSEUDO-041 | M | 0.2.0 | While no mapping table is open, the pseudonymisation window shall offer two choices, *Create a new table* (the default when none is kept in this browser) and *Open a table (.kdbx)*, and, for a new table, ask its prefix, its deletion date and its password typed twice, and say when and where its file is written. |
+| PSEUDO-042 | S | 0.2.0 | Where the browser can write files (File System Access API), the system shall let the user choose the file of a new table when it is created and write the table there, and again after each run without asking; an opened table shall be updated in its own file the same way once the user has allowed writing to it; elsewhere, the system shall offer the table for download after each run and warn before the window is closed while it is not saved. |
 | PSEUDO-040 | W | — | Lists of people read from databases (SQLite and others). |
 
 ## 10. Out of scope (Won't, this time)

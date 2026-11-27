@@ -24,6 +24,11 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
   check visually. The mapping table is an encrypted KDBX file with a
   deletion date; *🔓 Re-identify…* puts the names back in a text or a file.
   A notice must be acknowledged first.
+- **The mapping table created from the window, and kept up to date in its
+  file** (PSEUDO-041, PSEUDO-042): the window offers *Create a new table*,
+  *Open a table (.kdbx)* or the table kept in the browser; where the browser
+  can write files, a new table gets its `.kdbx` file when it is created, and
+  the table (new or opened) is written there again after each run.
 - **Lists of people from spreadsheets** (PSEUDO-004, PSEUDO-036..PSEUDO-039):
   the list given to the pseudonymisation may be an Excel workbook, an
   OpenDocument spreadsheet or the open spreadsheet, as well as a CSV file;
