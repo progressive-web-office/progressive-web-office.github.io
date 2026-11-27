@@ -107,21 +107,33 @@ A folder of Markdown notes works as a set of linked notes:
 
 - `[[Note]]` links to the note `Note.md` (in the same folder first, then
   anywhere in the folder, then by one of its `aliases:` in the front matter);
-  `[[Note#Heading]]` goes to a heading, `[[Note|shown text]]` shows another
-  text. <kbd>Ctrl</kbd>+click follows the link; a link to a note that does
+  `[[Note#Heading]]` goes to a heading, `[[Note#^id]]` to a block,
+  `[[Note|shown text]]` shows another text. <kbd>Ctrl</kbd>+click follows the link; a link to a note that does
   not exist yet offers to create it.
 - Typing `[[` lists the notes of the folder, those whose name starts with
   what you type first; typing `#` and a letter lists the tags already used.
   <kbd>↑</kbd>/<kbd>↓</kbd> choose, <kbd>Enter</kbd> or <kbd>Tab</kbd>
-  insert, <kbd>Esc</kbd> closes the list.
+  insert, <kbd>Esc</kbd> closes the list. After `[[Note#` the headings of
+  that note are listed, after `[[Note#^` its paragraphs (`[[#` and `[[#^` for
+  the note itself); a paragraph that has no identifier yet gets one, written
+  at its end (`^x1y2z3`), when you choose it.
 - **Note identifiers**: **🆔** in the explorer (or *New note with an
   identifier* in its menu) creates a note named after the date and time,
   `202410031530 Untitled.md`, with `id: 202410031530` in its front matter.
   `[[202410031530]]` links to it whatever its title becomes: a link made of
   8 to 14 digits goes to the note whose name starts with them, or whose front
   matter has that `id`.
-- `![[picture.png]]` shows a picture of the folder; `![[Note]]` is kept as a
-  link to that note.
+- **Embeds**: `![[picture.png]]` shows a picture of the folder. `![[Note]]`
+  shows that note in place, read-only — `![[Note#Heading]]` the section under
+  the heading, `![[Note#^id]]` the block — with **↗** to open it; embeds alone
+  on their line inside it are shown too, up to three levels, and a note
+  already shown is not shown again. `![[file.pdf]]` shows the first page of
+  the PDF file (`![[file.pdf#page=3]]` another page), and audio and video
+  files (`mp3`, `wav`, `ogg`, `m4a`, `flac`, `webm`, `mp4`, `mov`) are
+  played in the note.
+- **☰ Outline** (in the *Document* menu of the toolbar) shows the headings
+  of the document beside it; a click goes to a heading, and the heading of
+  the part shown is marked.
 - Under the page of the open note, **Linked from** lists the notes linking
   to it (backlinks), each with the words around the link, then the
   **related notes**: those sharing its tags or linked with it either way,
@@ -133,8 +145,9 @@ A folder of Markdown notes works as a set of linked notes:
   *in the side panel*), their order (*by name* or *latest changed first*),
   the words around each link, and the unlinked mentions; **▾ Linked from**
   folds them. The settings are kept for the next notes.
-- Renaming a note in the panel updates the `[[links]]` to it in the other
-  notes.
+- Renaming or moving a note in the panel updates the `[[links]]` to it in
+  the other notes, and their relative Markdown links (`[text](Folder/Note.md)`,
+  encoded or not).
 - The YAML front matter of each note (tags, aliases, any key) is kept as it
   is.
 
@@ -253,6 +266,71 @@ Project`), and the column it was made in. The view keeps only how to show
 the notes: they stay the only source. The format is described by a
 [JSON Schema](https://progressive-web-office.github.io/schemas/notes-view-1.schema.json).
 
+### Bases (`.base` files)
+
+A `.base` file of the folder is a view of its notes written in YAML: open it
+from the folder panel. Its **views** are shown as tabs — a **table** or
+**cards** — with the columns of `order`, the headers of `properties`
+(`displayName`), sections by the value of `groupBy`, the sort of `sort` and
+the `limit` of the view.
+
+```yaml
+filters:
+  and:
+    - file.hasTag("project")
+    - file.inFolder("Projects")
+formulas:
+  ttc: price * 1.2
+  late: if(due < today(), "late", "")
+properties:
+  formula.ttc:
+    displayName: Price incl. tax
+views:
+  - type: table
+    name: Open
+    filters:
+      not:
+        - status == "done"
+    order: [file.name, status, due, formula.ttc, formula.late]
+    sort:
+      - property: due
+        direction: ASC
+  - type: cards
+    name: By status
+    groupBy:
+      property: status
+      direction: DESC
+    limit: 20
+```
+
+- **Filters**: an expression, or `and`, `or`, `not` lists of filters (nested
+  as needed), for the whole file and for each view.
+- **Expressions**: properties (`status`, `note.status`, `note["last
+  contact"]`), the fields of the file (`file.name`, `file.basename`,
+  `file.path`, `file.folder`, `file.ext`, `file.size`, `file.mtime`,
+  `file.ctime`, `file.tags`, `file.links`), formulas (`formula.ttc`, which may
+  use other formulas), `== != < <= > >=`, `&& || !`, `+ - * / %`,
+  parentheses, lists `[…]`; the functions `if()`, `now()`, `today()`,
+  `date()`, `number()`, `link()`, `min()`, `max()`; the methods
+  `file.hasTag()` (a tag or a tag under it, `area` for `area/mech`),
+  `file.inFolder()`, `file.hasLink()`, `file.hasProperty()`, and `contains`,
+  `startsWith`, `endsWith`, `lower`, `upper`, `trim`, `isEmpty`, `.length`
+  on text and lists; a date plus or minus a duration (`today() + "7d"`,
+  `now() - "1 week"`: `y`, `M`, `w`, `d`, `h`, `m`, `s` or their names),
+  a date minus a date (milliseconds), and the parts of a date (`.year`,
+  `.month`, `.day`…). Dates written as text (`2026-12-01`) compare as dates.
+- **Changes**: a click on a column sorts by it (a second click: the other
+  way), kept in the file when it is saved; a double click on a property cell
+  changes the property in the note itself, its other lines unchanged.
+- **Not supported**: what the system does not know — another function or
+  method, `this`, a view of another type, a key it does not read, a line it
+  cannot parse — is listed above the view. A filter that cannot be evaluated
+  **keeps** the notes it would have filtered, a column that cannot be
+  computed shows *not supported*, a view of another type is shown as a table,
+  and saving writes the file back as it was, with only the sort changed.
+- Browsers do not tell when a file was created: `file.ctime` is the time of
+  its last change.
+
 ### Querying the notes in SQL
 
 The notes of the folder can be questioned in SQL (NOTE-002), from a
@@ -299,6 +377,12 @@ in the list below the graph, to open it.
 The documents of a `Templates` folder at the root of the folder are offered
 in **Templates and examples**, and **Save as template…** can keep new ones
 there: see [Templates](./templates.md#templates-of-a-folder).
+
+::: v-pre
+In a Markdown or text template, `{{title}}` (the template's name),
+`{{date}}` (`YYYY-MM-DD`), `{{date:DD/MM/YYYY}}` (any format) and `{{time}}`
+are filled in when a document is made from it.
+:::
 
 ## Master documents
 

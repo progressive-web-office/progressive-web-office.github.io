@@ -16,6 +16,8 @@ function marksFor(f: TextFormat): Mark[] {
   if (f.color) marks.push(schema.marks.color!.create({ hex: f.color }));
   if (f.font) marks.push(schema.marks.font!.create({ family: f.font }));
   if (f.highlight) marks.push(schema.marks.highlight!.create({ hex: f.highlight }));
+  if (f.mdComment) marks.push(schema.marks.mdComment!.create());
+  if (f.rawHtml) marks.push(schema.marks.rawHtml!.create());
   for (const id of f.comments ?? []) marks.push(schema.marks.comment!.create({ id }));
   if (f.inserted) marks.push(schema.marks.insertion!.create({ author: f.inserted.author ?? null, date: f.inserted.date ?? null }));
   if (f.deleted) marks.push(schema.marks.deletion!.create({ author: f.deleted.author ?? null, date: f.deleted.date ?? null }));
@@ -65,7 +67,7 @@ function runsToInline(runs: Run[]): PmNode[] {
         if (part) out.push(schema.text(part, marks));
       });
     } else if ('image' in run) {
-      out.push(schema.nodes.image!.create({ image: run.image, src: run.src ?? null, alt: run.alt ?? null, title: run.title ?? null, width: run.width ?? null, height: run.height ?? null }));
+      out.push(schema.nodes.image!.create({ image: run.image, src: run.src ?? null, alt: run.alt ?? null, title: run.title ?? null, width: run.width ?? null, height: run.height ?? null, linkSize: !!run.linkSize }));
     } else if ('math' in run) {
       out.push(schema.nodes.math!.create({ math: run.math, display: !!run.display }));
     } else if ('diagram' in run) {
@@ -94,7 +96,7 @@ function runsToInline(runs: Run[]): PmNode[] {
 export function paragraphToPm(p: Paragraph): PmNode {
   const layout = Object.fromEntries(LAYOUT_KEYS.map((k) => [k, p[k] ?? null]));
   return schema.nodes.paragraph!.create(
-    { style: p.style, align: p.align ?? null, listOrdered: p.list ? p.list.ordered : null, listLevel: p.list?.level ?? 0, anchor: p.id ?? null, solution: !!p.solution, cellHeader: p.cellHeader ?? null, cellSource: p.cellSource ?? null, named: p.named ?? null, ...layout },
+    { style: p.style, align: p.align ?? null, listOrdered: p.list ? p.list.ordered : null, listLevel: p.list?.level ?? 0, anchor: p.id ?? null, solution: !!p.solution, cellHeader: p.cellHeader ?? null, cellSource: p.cellSource ?? null, named: p.named ?? null, task: p.task ?? null, codeInfo: p.codeInfo ?? null, blockId: p.blockId ?? null, raw: p.raw ?? null, joined: !!p.joined, ...layout },
     runsToInline(p.runs),
   );
 }
@@ -152,6 +154,7 @@ function inlineToRuns(node: PmNode): Run[] {
           ...(a.title ? { title: a.title as string } : {}),
           ...(a.width ? { width: a.width as number } : {}),
           ...(a.height ? { height: a.height as number } : {}),
+          ...(a.linkSize ? { linkSize: true } : {}),
         });
         break;
       case 'math':
@@ -205,6 +208,11 @@ export function pmToParagraph(node: PmNode): Paragraph {
     ...(node.attrs.cellHeader !== null ? { cellHeader: node.attrs.cellHeader as string } : {}),
     ...(node.attrs.cellSource !== null ? { cellSource: node.attrs.cellSource as string } : {}),
     ...(node.attrs.named ? { named: node.attrs.named as string } : {}),
+    ...(node.attrs.task !== null && node.attrs.task !== undefined ? { task: node.attrs.task as string } : {}),
+    ...(node.attrs.codeInfo ? { codeInfo: node.attrs.codeInfo as string } : {}),
+    ...(node.attrs.blockId ? { blockId: node.attrs.blockId as string } : {}),
+    ...(node.attrs.raw ? { raw: node.attrs.raw as 'html' | 'comment' } : {}),
+    ...(node.attrs.joined ? { joined: true } : {}),
     ...(a.align ? { align: a.align } : {}),
     ...(a.listOrdered !== null ? { list: { ordered: a.listOrdered, level: a.listLevel } } : {}),
     ...Object.fromEntries(LAYOUT_KEYS.filter((k) => node.attrs[k] !== null).map((k) => [k, node.attrs[k] as number])),

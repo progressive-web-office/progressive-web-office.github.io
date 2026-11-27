@@ -43,6 +43,7 @@ const ICONS: [RegExp, string][] = [
   [/\.(xlsx|ods|csv|tsv|ots|xltx)$/i, '📊'],
   [/\.(pptx|odp|otp|potx)$/i, '📽️'],
   [/\.pdf$/i, '📕'],
+  [/\.canvas$/i, '🧩'],
   [/\.(png|jpe?g|gif|webp|bmp|avif|svg|ico)$/i, '🖼️'],
   [/\.(zip|7z|rar|tar|gz|tgz|xz|bz2)$/i, '🗜️'],
   [/\.(txt|log|csv|json|ya?ml|toml|ini|cfg|xml|bib)$/i, '📃'],

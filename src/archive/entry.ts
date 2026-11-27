@@ -10,7 +10,7 @@ const ENTRY_NAMES = ['index', 'readme', 'home', 'accueil', 'start', 'welcome', '
 const ENTRY = new RegExp(`^(?:\\d+[-_ .]*)?(${ENTRY_NAMES.join('|')})\\.(md|markdown)$`, 'i');
 const JUNK = /(^|\/)(__MACOSX|\.[^/]*)(\/|$)/;
 
-/** The Markdown files of an archive, junk and hidden folders (`.obsidian/`, `.trash/`) left out. */
+/** The Markdown files of an archive, junk and hidden folders (settings, `.trash/`) left out. */
 export const notesOf = (paths: readonly string[]): string[] => paths.filter((p) => MARKDOWN.test(p) && !JUNK.test(p));
 
 export function entryNote(paths: readonly string[]): string | undefined {

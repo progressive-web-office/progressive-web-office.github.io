@@ -63,12 +63,14 @@ import { writingKey, writingPlugin } from './pm/writing-plugin';
 import { completionPlugin } from './pm/complete';
 import { noteTagsPlugin, refreshNoteTags } from './pm/note-tags';
 import { calloutPlugin } from './pm/callouts';
+import { notesPlugin, showBlock } from './pm/notes';
 import { loadToolbarMode, toolGroup } from '../app/tool-groups';
 import { insertSnippet, snippetStopsPlugin } from './pm/snippet-stops';
 import { builtinSnippets, expandSnippet, loadSnippets, mergeSnippets, type Snippet } from './snippets';
 import { readability } from './readability';
 import { addWritten, loadGoal, saveGoal } from './writing-stats';
 import { CommentPanel } from './comment-panel';
+import { OutlinePanel } from './outline-panel';
 import { pruneComments } from './comments';
 import { FindBar } from './find-bar';
 import { editPageSetup, pageSetupCss, zonePreview } from './page-setup';
@@ -190,6 +192,8 @@ export class DocumentEditor implements EditorView {
   private trusted = false;
   /** REV-001: the comments beside the page. */
   private readonly comments: CommentPanel;
+  /** FOLDER-029: the outline of the document. */
+  private readonly outline: OutlinePanel;
   /** CODE-015: the dependency graph of the code cells. */
   private readonly dag: DagPanel;
   /** REV-005: tracked changes, recorded while `tracking` with this author. */
@@ -259,6 +263,19 @@ export class DocumentEditor implements EditorView {
     });
     this.findBar = new FindBar(() => this.view);
     this.comments = new CommentPanel({ view: () => this.view, doc: this.doc, readOnly: () => this.readOnly, changed: () => this.changed() });
+    this.outline = new OutlinePanel({
+      headings: () => this.headings(6),
+      go: (pos) => {
+        const dom = this.view.nodeDOM(pos);
+        if (dom instanceof HTMLElement) dom.scrollIntoView({ block: 'start' });
+        this.view.dispatch(this.view.state.tr.setSelection(TextSelection.near(this.view.state.doc.resolve(pos + 1))));
+        this.view.focus();
+      },
+      dom: (pos) => {
+        const dom = this.view.nodeDOM(pos);
+        return dom instanceof HTMLElement ? dom : undefined;
+      },
+    });
     this.changesPanel = new ChangePanel(() => this.view, () => this.readOnly);
     this.dag = new DagPanel({ view: () => this.dagView(), goTo: (i) => this.goToCell(i) });
     this.trackButton = button(t('track.button'), () => void this.toggleTracking(), { text: '±', title: t('track.title'), className: 'track-btn' });
@@ -274,6 +291,8 @@ export class DocumentEditor implements EditorView {
     );
     const sheet = h('div', { class: 'doc-sheet' }, this.rulers.horizontal, h('div', { class: 'doc-sheet-body' }, this.rulers.vertical, this.page));
     const scroller = h('div', { class: 'doc-scroll' }, this.propertiesCard.element, this.headerStrip, sheet, this.footerStrip, this.bottom, this.notes);
+    // FOLDER-029: the heading of the part shown is marked in the outline.
+    scroller.addEventListener('scroll', () => this.outline.mark(), { passive: true });
     this.scroller = scroller;
     this.element = h('div', { class: 'doc-editor' });
     this.showRulers(loadRulerSides());
@@ -311,7 +330,7 @@ export class DocumentEditor implements EditorView {
       this.review.bar,
       this.buildTableBar(),
       this.findBar.element,
-      h('div', { class: 'doc-body' }, scroller, h('div', { class: 'doc-side' }, this.dag.element, this.changesPanel.element, this.comments.element)),
+      h('div', { class: 'doc-body' }, scroller, h('div', { class: 'doc-side' }, this.outline.element, this.dag.element, this.changesPanel.element, this.comments.element)),
     );
     for (const strip of [this.headerStrip, this.footerStrip]) {
       strip.addEventListener('click', () => void this.editPageSetup());
@@ -338,15 +357,23 @@ export class DocumentEditor implements EditorView {
             // FOLDER-021: `[[` and `#` complete with the notes and tags of the folder (before Enter's keymap).
             // DOC-037: `;;` and a name inserts a snippet.
             completionPlugin(
-              (kind) => (kind === 'snippet' ? this.snippets().then((list) => list.map((x) => x.name)) : this.ctx.completions?.(kind)),
-              (kind) => t(kind === 'link' ? 'complete.notes' : kind === 'tag' ? 'complete.tags' : 'snippet.title'),
+              (kind, note) =>
+                kind === 'snippet'
+                  ? this.snippets().then((list) => list.map((x) => x.name))
+                  : kind === 'heading' || kind === 'block'
+                    ? this.subCompletions(kind, note ?? '')
+                    : this.ctx.completions?.(kind),
+              (kind) => t(kind === 'link' ? 'complete.notes' : kind === 'tag' ? 'complete.tags' : kind === 'heading' ? 'complete.headings' : kind === 'block' ? 'complete.blocks' : 'snippet.title'),
               (name) => this.insertSnippetNamed(name),
+              (q, item) => void this.acceptedBlock(q.kind, item),
             ),
             snippetStopsPlugin(),
             // FOLDER-023: #tags of a note shown as tags, in their colour.
             noteTagsPlugin((tag) => (this.ctx.tagColour ? this.ctx.tagColour(tag) : null)),
             // MD-019: callouts (`> [!NOTE]`) as coloured boxes.
             calloutPlugin(),
+            // MD-020, MD-021, MD-023, MD-026: tasks, coloured code, HTML blocks, folded callouts.
+            notesPlugin(() => this.embedContext()),
             // DOC-042: lines with horizontal springs.
             springsPlugin(),
             ...basePlugins({ footnote: () => void this.editNote(), find: (replace) => this.findBar.open(replace), link: () => this.insertLink(), math: () => void this.editMath(), diagram: () => void this.editDiagram() }),
@@ -690,6 +717,67 @@ export class DocumentEditor implements EditorView {
     this.refocus();
   }
 
+  /** FOLDER-028: blocks offered without an identifier, given one when chosen (in this note, or a note of the folder). */
+  private readonly pendingBlocks = new Map<string, { pos: number } | { path: string; line: number; text: string }>();
+
+  /** FOLDER-028: the headings or the blocks of this note (`[[#`) or of another note of the folder. */
+  private async subCompletions(kind: 'heading' | 'block', note: string): Promise<string[]> {
+    const { blockItem } = await import('./pm/complete');
+    const newId = (): string => Math.random().toString(36).slice(2, 8);
+    this.pendingBlocks.clear();
+    if (!note) {
+      if (kind === 'heading') return this.headings(6).map((h) => h.text);
+      const out: string[] = [];
+      this.view.state.doc.descendants((node, pos) => {
+        if (node.type !== schema.nodes.paragraph) return true;
+        const text = node.textContent.replace(/\s+/g, ' ').trim();
+        if (!text || /^h\d$/.test(node.attrs.style as string) || node.attrs.raw) return false;
+        let id = node.attrs.blockId as string | null;
+        if (!id) {
+          id = newId();
+          this.pendingBlocks.set(id, { pos });
+        }
+        out.push(blockItem(text, id));
+        return false;
+      });
+      return out;
+    }
+    const file = await this.ctx.embedFile?.(note).catch(() => undefined);
+    if (!file) return [];
+    const source = new TextDecoder().decode(file.bytes);
+    const { markdownBlocks } = await import('./markdown-reader');
+    return markdownBlocks(source)
+      .filter((b) => b.kind === kind)
+      .map((b) => {
+        if (kind === 'heading') return b.text;
+        const id = b.id ?? newId();
+        if (!b.id) this.pendingBlocks.set(id, { path: file.path, line: b.line, text: source.split('\n')[b.line] ?? '' });
+        return blockItem(b.text, id);
+      });
+  }
+
+  /** FOLDER-028: a block chosen without an identifier gets the one its link uses. */
+  private async acceptedBlock(kind: string, item: string): Promise<void> {
+    if (kind !== 'block') return;
+    const { blockOfItem } = await import('./pm/complete');
+    const id = blockOfItem(item);
+    const target = this.pendingBlocks.get(id);
+    this.pendingBlocks.clear();
+    if (!target) return;
+    if ('pos' in target) {
+      const node = this.view.state.doc.nodeAt(target.pos);
+      if (node?.type === schema.nodes.paragraph && !node.attrs.blockId) this.view.dispatch(this.view.state.tr.setNodeAttribute(target.pos, 'blockId', id));
+      return;
+    }
+    const file = await this.ctx.embedFile?.(target.path).catch(() => undefined);
+    if (!file || !this.ctx.writeFolderFile) return;
+    const lines = new TextDecoder().decode(file.bytes).split('\n');
+    // Only when the line is still the one offered.
+    if (lines[target.line] !== target.text) return;
+    lines[target.line] = `${target.text.replace(/\s+$/, '')} ^${id}`;
+    await this.ctx.writeFolderFile(`/${target.path}`, new TextEncoder().encode(lines.join('\n')));
+  }
+
   private headings(levels: number): { level: number; text: string; pos: number }[] {
     const out: { level: number; text: string; pos: number }[] = [];
     this.view?.state.doc.descendants((node, pos) => {
@@ -758,6 +846,7 @@ export class DocumentEditor implements EditorView {
     if (tr.docChanged) {
       this.countWords();
       this.comments.refresh();
+      this.outline.refresh();
       this.changesPanel.refresh();
       // TEACH-001: the sheet variants appear with the first solution.
       const has = this.hasSolutions();
@@ -2195,7 +2284,46 @@ export class DocumentEditor implements EditorView {
   }
 
   /** FOLDER-002: show the first match of a search from the folder panel. */
+  /** MD-027, MD-028: how embeds of the note are found, read and drawn (only while a folder is open). */
+  private embedContext(): import('./embeds').EmbedContext | undefined {
+    const load = this.ctx.embedFile;
+    if (!load) return undefined;
+    const keep = (url: string): void => void this.urls.set(`embed:${url}`, url);
+    return {
+      load: (target) => load(target),
+      labels: { open: t('embed.open'), missing: (name) => t('embed.missing', { name }), loop: t('embed.loop'), loading: t('embed.loading') },
+      open: (ref) => void this.ctx.openLink?.(`wiki:${ref}`),
+      read: async (markdown) => readMarkdown(markdown, {}),
+      draw: (doc) =>
+        blocksToDom(doc.blocks, document, (key) => {
+          const r = doc.resources.get(key);
+          if (!r) return undefined;
+          const url = URL.createObjectURL(new Blob([r.data as BlobPart], { type: r.mediaType }));
+          keep(url);
+          return { url };
+        }),
+      pdfPage: async (bytes, page) => (await import('../pdf/page-picture')).pdfPagePicture(bytes, page),
+      keep,
+    };
+  }
+
   find(query: string): void {
+    // MD-025: `note#^id` opens the note at that block.
+    const id = /^\^([A-Za-z0-9][A-Za-z0-9-]*)$/.exec(query.trim())?.[1];
+    if (id) {
+      let found = -1;
+      this.view.state.doc.descendants((node, pos) => {
+        if (found < 0 && node.attrs.blockId === id) found = pos;
+        return found < 0;
+      });
+      if (found >= 0) {
+        this.view.dispatch(this.view.state.tr.setSelection(TextSelection.near(this.view.state.doc.resolve(found + 1))));
+        showBlock(this.view, found);
+        const dom = this.view.nodeDOM(found);
+        if (dom instanceof HTMLElement) dom.scrollIntoView({ block: 'center' });
+        return;
+      }
+    }
     this.findBar.openWith(query);
   }
 
@@ -2669,7 +2797,7 @@ export class DocumentEditor implements EditorView {
         act(t('quiz.button'), '📝', () => void this.exportQuiz(), t('quiz.buttonTitle')),
         act(t('control.button'), '📈', () => void this.insertControlPlots(), t('control.buttonTitle')),
       ]),
-      toolGroup(t('group.document'), '📄', [...(compact ? [this.textToolsMenu(), this.viewToolsMenu()] : []), act(t('meta.button'), 'ⓘ', () => void this.editProperties(), t('meta.buttonTitle')), act(t('hf.button'), '▤', () => void this.editPageSetup())]),
+      toolGroup(t('group.document'), '📄', [...(compact ? [this.textToolsMenu(), this.viewToolsMenu()] : []), act(t('meta.button'), 'ⓘ', () => void this.editProperties(), t('meta.buttonTitle')), act(t('hf.button'), '▤', () => void this.editPageSetup()), act(t('outline.button'), '☰', () => this.outline.toggle(), t('outline.buttonTitle'))]),
     );
   }
 

@@ -818,14 +818,34 @@ document and read back when it is opened again:
 - **Callouts** (also called admonitions or alerts): a quote whose first line
   is `[!NOTE]`, `[!TIP]`, `[!WARNING]`, `[!DANGER]`… with an optional title
   and `+`/`-` (folding) is drawn as a coloured box, and written back as it
-  is:
+  is. A callout written with `-` starts folded and `+` unfolded: a click on
+  **▸**/**▾** before its title folds or unfolds it:
 
   ```md
   > [!WARNING] Hot surface
   > Do not touch the heater while it runs.
   ```
-- Raw HTML in a Markdown file is displayed as text and never executed;
-  only `<u>…</u>` and `<br>` are interpreted.
+- **Task lists**: `- [ ] to do` and `- [x] done` are drawn as check boxes;
+  a click ticks or unticks them. Other states written between the brackets
+  (`[/]`, `[-]`, `[>]`…) are kept as they are (shown half-ticked). Typing
+  `[ ]` and a space at the start of a list item makes it a task. In Word,
+  OpenDocument and PDF, tasks are written ☐ and ☑.
+- **Code blocks** keep their language (` ```js `, ` ```python title="a.py" `)
+  and are coloured by it for the usual languages (Python, JavaScript,
+  TypeScript, SQL, C/C++, Java, Go, Rust, R, Lua, Julia, diff).
+- **Sizes of pictures** written in their link — `![[photo.png|300]]`,
+  `![[photo.png|300x200]]`, `![sea|300](sea.png)` — are applied and kept.
+- **Raw HTML** is kept as written when the file is saved. An HTML block is
+  shown sanitised (no scripts, styles, event handlers, frames or
+  `javascript:` links; pictures only when carried in the file) and cannot
+  be edited in the visual editor — edit it in the **Source** mode. Inline
+  HTML is shown as written; only `<u>…</u>` and `<br>` are interpreted.
+- **Comments**: `%%hidden%%`, or a block between two `%%` lines, are shown
+  faint while editing, hidden in **Reading** mode, kept when saved, and left
+  out of Word, OpenDocument, LaTeX and PDF files.
+- **Block identifiers**: `^id` at the end of a paragraph, a list item or a
+  quote (or alone on the line after a block) is hidden and kept; a link
+  `[[Note#^id]]` opens the note at that block.
 - Pictures linked with a relative path (`![alt](img/photo.png)`,
   `<img src="img/photo.png">` or `![[photo.png]]`) are shown when the note is
   opened from a folder or an archive; names with spaces or accents work

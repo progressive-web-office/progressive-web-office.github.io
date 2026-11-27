@@ -1,0 +1,68 @@
+/* CANVAS-001..CANVAS-004: canvases (JSON Canvas). */
+.canvas-view { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.canvas-toolbar { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 4px 8px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.canvas-custom-colour { width: 0; height: 0; padding: 0; border: 0; opacity: 0; }
+.canvas-zoom { min-width: 3.5em; text-align: center; font-variant-numeric: tabular-nums; }
+.canvas-message { margin: 0; padding: 0 8px; color: var(--muted); font-size: 0.9rem; }
+.canvas-message:empty { display: none; }
+.canvas-message.error { color: var(--danger); }
+.canvas-scroller {
+  flex: 1; min-height: 0; overflow: auto; position: relative; cursor: grab; outline: none;
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--text) 18%, transparent) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.canvas-scroller:focus-visible { box-shadow: inset 0 0 0 2px var(--focus, #4c8bf5); }
+.canvas-scroller.panning, .canvas-scroller:active { cursor: grabbing; }
+.canvas-surface { position: relative; }
+.canvas-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.canvas-edges { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.canvas-edge { pointer-events: auto; cursor: pointer; }
+.canvas-edge-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; }
+.canvas-edge-line { fill: none; stroke-width: 2.5; }
+.canvas-connecting { stroke: var(--accent); stroke-dasharray: 6 4; }
+.canvas-edge.selected .canvas-edge-line { stroke-width: 4; }
+.canvas-labels { position: absolute; left: 0; top: 0; }
+.canvas-edge-label {
+  position: absolute; transform: translate(-50%, -50%); padding: 2px 6px; border-radius: 4px;
+  background: var(--surface); border: 1px solid var(--border); font-size: 0.85rem; white-space: nowrap; cursor: pointer; min-width: 1em; min-height: 1em;
+}
+.canvas-edge-label.selected { outline: 2px solid var(--accent); }
+.canvas-layer { position: absolute; left: 0; top: 0; }
+.canvas-node {
+  --canvas-colour: var(--border);
+  position: absolute; box-sizing: border-box; border: 2px solid var(--canvas-colour); border-radius: 8px;
+  background: var(--surface); color: var(--text); overflow: hidden; cursor: default; user-select: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.canvas-node.selected { outline: 3px solid var(--accent); outline-offset: 2px; }
+.canvas-group { background: color-mix(in srgb, var(--canvas-colour) 12%, transparent); box-shadow: none; overflow: visible; }
+.canvas-group-label {
+  position: absolute; left: 0; top: -1.9em; padding: 2px 8px; border-radius: 6px 6px 0 0; font-weight: 600;
+  background: color-mix(in srgb, var(--canvas-colour) 30%, var(--surface)); white-space: nowrap; min-width: 2em; min-height: 1.2em;
+}
+.canvas-md { padding: 8px 12px; height: 100%; box-sizing: border-box; overflow: auto; user-select: text; }
+.canvas-md > :first-child { margin-top: 0; }
+.canvas-md img { max-width: 100%; }
+.canvas-file { display: flex; flex-direction: column; }
+.canvas-file-name { padding: 4px 10px; font-weight: 600; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.canvas-file-body { flex: 1; min-height: 0; overflow: auto; }
+.canvas-file-body img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.canvas-file-body .hint { padding: 8px 10px; margin: 0; }
+.canvas-link { display: flex; align-items: center; gap: 8px; padding: 8px 12px; }
+.canvas-link-url { flex: 1; overflow: hidden; text-overflow: ellipsis; word-break: break-all; color: var(--accent); }
+.canvas-unknown { border-style: dashed; }
+.canvas-unknown-type { padding: 8px; color: var(--muted); font-size: 0.85rem; }
+.canvas-edit { width: 100%; height: 100%; box-sizing: border-box; border: 0; padding: 8px 12px; resize: none; font: inherit; background: var(--surface); color: var(--text); }
+.canvas-label-edit { font: inherit; width: 12em; }
+.canvas-handle {
+  position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); border: 2px solid var(--surface);
+  opacity: 0; cursor: crosshair; z-index: 2;
+}
+.canvas-node:hover > .canvas-handle, .canvas-node.selected > .canvas-handle { opacity: 1; }
+.canvas-handle-top { left: calc(50% - 6px); top: -6px; }
+.canvas-handle-bottom { left: calc(50% - 6px); bottom: -6px; }
+.canvas-handle-left { top: calc(50% - 6px); left: -6px; }
+.canvas-handle-right { top: calc(50% - 6px); right: -6px; }
+.canvas-resize { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; z-index: 2; background: linear-gradient(135deg, transparent 50%, var(--canvas-colour) 50%); }
+.canvas-read-only .canvas-scroller { cursor: default; }

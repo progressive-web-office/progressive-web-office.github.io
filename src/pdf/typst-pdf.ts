@@ -68,6 +68,7 @@ export function confirmTypstDownload(host: HTMLElement): Promise<boolean> {
 /** The document as a PDF. */
 export async function typesetPdf(doc: RichDocument, opts: PdfOptions): Promise<Uint8Array> {
   const { renderDiagrams } = await import('../document/io');
+  doc = (await import('../document/note-export')).forExport(doc);
   const out = writeTypst(doc, { diagrams: await renderDiagrams(doc, 'pdf'), labels: { references: t('bib.title') }, fileName: opts.fileName, now: new Date() });
   const fonts = fontUrls(out.fonts);
   if (!(await allCached([TYPST_WASM, ...fonts])) && !(await consent.ask(FONT_ORIGIN, () => confirmTypstDownload(opts.host)))) throw new Error(t('pdfx.refused'));

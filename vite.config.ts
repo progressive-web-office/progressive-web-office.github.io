@@ -31,6 +31,8 @@ const CSP = [
   "worker-src 'self' blob:",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
+  // MD-028: audio and video files of a note's folder, played from blob: URLs.
+  "media-src 'self' blob:",
   "font-src 'self' data: blob:",
   // https: for git hosting APIs (GitHub, GitLab, self-hosted) and the AI provider.
   // Local AI servers (Ollama, LM Studio) run over plain HTTP on the user's machine (AI-007).

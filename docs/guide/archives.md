@@ -39,10 +39,10 @@ bibliography, see [LaTeX](./latex.md)) and a ZIP holding a single Markdown
 note with its pictures. A ZIP holding several LaTeX projects, or LaTeX and
 Markdown files next to office documents or source code, opens as a folder.
 
-### A ZIP of notes (an Obsidian vault)
+### A ZIP of notes (a vault)
 
-A ZIP holding **several Markdown notes** — a vault of notes, an Obsidian vault
-with its `.obsidian/` folder — opens **as a folder**, as the unzipped folder
+A ZIP holding **several Markdown notes** — a vault of notes, with or without
+the hidden settings folder of a notes application — opens **as a folder**, as the unzipped folder
 would: the tree, the search, the links between notes and the graph work in
 it. No main document is asked for: its entry note opens and is shown in the
 tree — `index.md`, `README.md`, `Home.md`, `Accueil.md`, `Start.md`,

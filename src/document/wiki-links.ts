@@ -60,7 +60,11 @@ export function wikiRuns(runs: Run[]): Run[] {
     let last = 0;
     for (const l of parseWikiLinks(r.text)) {
       if (l.index > last) out.push({ ...r, text: r.text.slice(last, l.index) });
-      if (l.embed && IMAGE.test(l.target)) out.push({ image: '', src: l.target, title: EMBED, ...(l.alias ? { alt: l.alias } : {}) });
+      if (l.embed && IMAGE.test(l.target)) {
+        // MD-022: `![[picture.png|300]]`, `|300x200`: a size, not a text.
+        const size = l.alias ? /^(\d{1,5})(?:x(\d{1,5}))?$/.exec(l.alias.trim()) : null;
+        out.push({ image: '', src: l.target, title: EMBED, ...(size ? { width: Number(size[1]), ...(size[2] ? { height: Number(size[2]) } : {}) } : l.alias ? { alt: l.alias } : {}) });
+      }
       else {
         // An embedded note is a link whose target starts with `!`.
         const run: TextRun = { ...r, text: l.alias || defaultLabel(l.target, l.heading), link: `${WIKI}${l.embed ? '!' : ''}${l.target}${l.heading !== undefined ? `#${l.heading}` : ''}` };

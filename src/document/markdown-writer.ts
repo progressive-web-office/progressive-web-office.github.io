@@ -99,6 +99,15 @@ function escapeLineStart(line: string): string {
 }
 
 /** A fenced code block, with a fence longer than any backtick run starting a line. */
+/** MD-025: ` ^id` after the text of a block that has an identifier. */
+const blockIdSuffix = (p: Paragraph): string => (p.blockId ? ` ^${p.blockId}` : '');
+
+/** MD-026: a paragraph that is only a callout's marker line (`[!tip]- Title`). */
+const isCalloutTitle = (p: Paragraph): boolean => {
+  const first = p.runs[0];
+  return !!first && isTextRun(first) && CALLOUT.test(first.text);
+};
+
 function fenced(body: string, info = ''): string {
   const longest = Math.max(2, ...(body.match(/^\s*`+/gm) ?? []).map((m) => m.trim().length));
   const fence = '`'.repeat(longest + 1);
@@ -149,24 +158,33 @@ class MarkdownWriter {
 
   private parts(blocks: Block[]): string[] {
     const parts: string[] = [];
-    let quote: string[] = [];
+    /** Paragraphs of a quote; MD-026: a callout's title line is followed by its body without a blank line. */
+    let quote: { text: string; head: boolean }[] = [];
     let code: string[] = [];
+    /** MD-021: the info string of the code block (its language). */
+    let codeInfo = '';
     const flushQuote = (): void => {
-      if (quote.length) parts.push(quote.map((q) => q.split('\n').map((l) => (l ? `> ${l}` : '>')).join('\n')).join('\n>\n'));
+      const lines = (q: string): string => q.split('\n').map((l) => (l ? `> ${l}` : '>')).join('\n');
+      if (quote.length) parts.push(quote.map((q, i) => (i === 0 ? '' : quote[i - 1]!.head ? '\n' : '\n>\n') + lines(q.text)).join(''));
       quote = [];
     };
     const flushCode = (): void => {
       if (code.length) {
-        parts.push(fenced(code.join('\n')));
+        parts.push(fenced(code.join('\n'), codeInfo));
       }
       code = [];
+      codeInfo = '';
     };
     for (const group of groupBlocks(blocks)) {
-      const isQuote = group.type === 'paragraph' && group.style === 'quote';
-      const isCode = group.type === 'paragraph' && group.style === 'code';
+      const raw = group.type === 'paragraph' && group.raw ? group : undefined;
+      const isQuote = !raw && group.type === 'paragraph' && group.style === 'quote';
+      const isCode = !raw && group.type === 'paragraph' && group.style === 'code';
       if (!isQuote) flushQuote();
-      if (!isCode) flushCode();
-      if (group.type === 'list') {
+      if (!isCode || (group.type === 'paragraph' && (group.codeInfo ?? '') !== codeInfo && code.length)) flushCode();
+      if (raw) {
+        // MD-023, MD-024: raw HTML and comment blocks, as written.
+        parts.push(raw.runs.map((r) => (isTextRun(r) ? r.text : '')).join(''));
+      } else if (group.type === 'list') {
         for (const segment of splitListSegments(group.items)) {
           for (const list of nestLists(segment)) parts.push(this.list(list, ''));
         }
@@ -192,9 +210,10 @@ class MarkdownWriter {
         const first = group.runs[0];
         const callout = first && isTextRun(first) && !first.link && CALLOUT.test(first.text) ? CALLOUT.exec(first.text)![0] : undefined;
         if (callout) flushQuote();
-        const text = this.commented(group.runs, true);
-        quote.push(callout ? text.replace(escapeInline(callout), callout) : text);
+        const text = this.commented(group.runs, true) + blockIdSuffix(group);
+        quote.push({ text: callout ? text.replace(escapeInline(callout), callout) : text, head: !!callout && quote.length === 0 && !!group.joined && isCalloutTitle(group) });
       } else if (isCode) {
+        if (!code.length) codeInfo = group.codeInfo ?? '';
         code.push(group.runs.map((r) => (isTextRun(r) ? r.text : '')).join(''));
       } else {
         parts.push(this.paragraph(group));
@@ -221,8 +240,8 @@ class MarkdownWriter {
     if (only && isCodeCellRun(only)) return this.cell(only);
     const heading = /^h(\d)$/.exec(p.style);
     const inline = this.commented(p.runs, true);
-    if (heading) return `${'#'.repeat(Number(heading[1]))} ${anchor}${inline.replace(/\n/g, ' ')}`;
-    return anchor + inline || '<br>';
+    if (heading) return `${'#'.repeat(Number(heading[1]))} ${anchor}${inline.replace(/\n/g, ' ')}${blockIdSuffix(p)}`;
+    return (anchor + inline || '<br>') + blockIdSuffix(p);
   }
 
   /**
@@ -253,7 +272,9 @@ class MarkdownWriter {
     for (const item of list.items) {
       const marker = list.ordered ? `${n++}. ` : '- ';
       const pad = indent + ' '.repeat(marker.length);
-      const text = item.paragraph ? this.commented(item.paragraph.runs, false) : '';
+      // MD-020: a task keeps its state; MD-025: a block identifier ends the item.
+      const task = item.paragraph?.task !== undefined ? `[${item.paragraph.task}] ` : '';
+      const text = item.paragraph ? task + this.commented(item.paragraph.runs, false) + blockIdSuffix(item.paragraph) : '';
       const [first = '', ...rest] = text.split('\n');
       lines.push(`${indent}${marker}${first}`.trimEnd(), ...rest.map((l) => `${pad}${l}`));
       for (const child of item.children) lines.push(this.list(child, pad));
@@ -373,7 +394,9 @@ class MarkdownWriter {
         continue;
       }
       if (isImageRun(run) && run.title === EMBED && run.src) {
-        out += `![[${run.src}]]`;
+        // MD-022: the size (or the text) written in the embed.
+        const extra = run.width ? `|${run.width}${run.height ? `x${run.height}` : ''}` : run.alt ? `|${run.alt}` : '';
+        out += `![[${run.src}${extra}]]`;
         continue;
       }
       if (isImageRun(run)) {
@@ -385,7 +408,13 @@ class MarkdownWriter {
               ? safeDecode(run.src)
               : this.dataUri(run.image)
           : (run.src ?? '');
-        out += `![${escapeInline(run.alt ?? '')}](${url.replace(/[()\s]/g, encodeURIComponent)})`;
+        const size = run.linkSize && run.width ? `|${run.width}${run.height ? `x${run.height}` : ''}` : '';
+        out += `![${escapeInline(run.alt ?? '')}${size}](${url.replace(/[()\s]/g, encodeURIComponent)})`;
+        continue;
+      }
+      if (isTextRun(run) && (run.rawHtml || run.mdComment)) {
+        // MD-023, MD-024: inline HTML and comments, as written.
+        out += run.mdComment ? `%%${run.text}%%` : run.text;
         continue;
       }
       let text = run.text;

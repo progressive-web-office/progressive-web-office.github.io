@@ -96,6 +96,8 @@ export interface ViewContext {
   tagColour?(tag: string): string | undefined | null;
   /** DOC-036: data files of the open folder (CSV, TSV, workbooks), relative to this document. */
   folderDataFiles?(): string[] | undefined;
+  /** MD-027, MD-028: find and read the note or file an embed points to (a name, a path from the note or the folder). */
+  embedFile?(target: string): Promise<{ path: string; bytes: Uint8Array } | undefined>;
   /** DOC-036: read a file of the open folder, relative to this document. */
   readFolderFile?(path: string): Promise<Uint8Array>;
   /** DOC-036: write a file into the open folder, relative to this document; undefined when it cannot be written. */
@@ -172,10 +174,20 @@ export async function openView(
         const { DataModelView } = await import('../datamodel/view');
         return new DataModelView(bytes, ctx, fileName);
       }
+      // CANVAS-001: a canvas (JSON Canvas).
+      if (/\.canvas$/i.test(fileName)) {
+        const { CanvasView } = await import('../canvas/view');
+        return new CanvasView(bytes, ctx, fileName);
+      }
       // NOTE-003: a view of the notes of the folder.
       if (/\.view\.ya?ml$/i.test(fileName)) {
         const { NotesView } = await import('../folder/notes-view');
         return new NotesView(bytes, ctx, fileName);
+      }
+      // NOTE-004: a `.base` file, views of the notes of the folder.
+      if (/\.base$/i.test(fileName)) {
+        const { BasesView } = await import('../folder/bases-view');
+        return new BasesView(bytes, ctx, fileName);
       }
       const { TextView } = await import('../files/text-view');
       return new TextView(bytes, ctx, fileName);

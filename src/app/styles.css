@@ -2238,3 +2238,28 @@ button[data-icon]:not(.card):not(.template-card):not(.template-tab):not(.start-l
 .pseudo-list-columns { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 12px; align-items: end; }
 .pseudo-list-table { border-collapse: collapse; font-size: 0.9rem; margin-top: 6px; }
 .pseudo-list-table th, .pseudo-list-table td { border: 1px solid var(--border); padding: 2px 6px; text-align: left; }
+
+/* MD-020..MD-026: notes */
+.doc-page .list-item.task::before { content: none !important; }
+.doc-page .task-box { position: absolute; left: -1.5em; top: 0.2em; margin: 0; cursor: pointer; }
+.doc-page .list-item.task-done { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.doc-page .md-comment { opacity: 0.55; font-style: italic; background: color-mix(in srgb, var(--muted) 12%, transparent); border-radius: 3px; }
+.doc-page .raw-comment { opacity: 0.55; font-family: ui-monospace, monospace; font-size: 0.9em; white-space: pre-wrap; border-left: 2px dashed var(--border); padding-left: 6px; }
+.doc-page .raw-html { font-family: ui-monospace, monospace; font-size: 0.9em; opacity: 0.75; }
+.reading-mode .doc-page .md-comment, .reading-mode .doc-page .raw-comment { display: none; }
+.doc-page .raw-html-block { border: 1px dashed var(--border); border-radius: 4px; padding: 4px 8px; margin: 6pt 0; cursor: default; }
+.doc-page .raw-html-block img { max-width: 100%; }
+.doc-page blockquote.callout-folded { display: none; }
+.doc-page .callout-fold { border: 0; background: none; color: inherit; padding: 0 4px 0 0; cursor: pointer; font: inherit; }
+.doc-page .block-target { outline: 2px solid var(--accent); outline-offset: 2px; transition: outline-color 1s; }
+.doc-outline { padding: 8px; font-size: 0.9rem; }
+.doc-outline h2 { font-size: 1rem; margin: 0 0 6px; }
+.doc-outline-list { list-style: none; margin: 0; padding: 0; }
+.doc-outline-list button.link { margin: 0; padding: 2px 0; text-align: left; text-decoration: none; color: inherit; }
+.doc-outline-list li[aria-current] > button { color: var(--accent); font-weight: 600; }
+.doc-outline-list .outline-l2 { padding-left: 0.8em; } .doc-outline-list .outline-l3 { padding-left: 1.6em; } .doc-outline-list .outline-l4 { padding-left: 2.4em; } .doc-outline-list .outline-l5, .doc-outline-list .outline-l6 { padding-left: 3.2em; }
+.doc-page .note-embed { display: block; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); margin: 6pt 0; padding: 4px 10px; border-radius: 0 6px 6px 0; white-space: normal; text-indent: 0; }
+.doc-page .note-embed-head { display: flex; justify-content: space-between; font-size: 0.85em; color: var(--muted); }
+.doc-page .note-embed-open { border: 0; background: none; color: inherit; cursor: pointer; }
+.doc-page .note-embed-body img, .doc-page .note-embed-body video { max-width: 100%; }
+.doc-page .note-embed-body audio { width: 100%; }

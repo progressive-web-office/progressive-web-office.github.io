@@ -37,7 +37,7 @@ describe('MD-001 Markdown reader', () => {
       paragraph('b', { list: { ordered: true, level: 1 } }),
       paragraph('c', { list: { ordered: false, level: 0 } }),
       paragraph('q', { style: 'quote' }),
-      paragraph('x = 1\ny', { style: 'code' }),
+      paragraph('x = 1\ny', { style: 'code', codeInfo: 'js' }),
       { type: 'rule' },
       {
         type: 'table',
@@ -50,10 +50,10 @@ describe('MD-001 Markdown reader', () => {
     ] satisfies Block[]);
   });
 
-  it('MD-003 treats raw HTML as text (except <u> and <br>)', () => {
+  it('MD-003 MD-023 keeps raw HTML as written, never as markup of the page (except <u> and <br>)', () => {
     expect(md('<script>alert(1)</script>\n\nx <b onclick="y">z</b> <u>under</u>')).toEqual([
-      paragraph('<script>alert(1)</script>'),
-      { type: 'paragraph', style: 'normal', runs: [{ text: 'x <b onclick="y">z</b> ' }, { text: 'under', underline: true }] },
+      { type: 'paragraph', style: 'normal', raw: 'html', runs: [{ text: '<script>alert(1)</script>' }] },
+      { type: 'paragraph', style: 'normal', runs: [{ text: 'x ' }, { text: '<b onclick="y">', rawHtml: true }, { text: 'z' }, { text: '</b>', rawHtml: true }, { text: ' ' }, { text: 'under', underline: true }] },
     ]);
   });
 
@@ -147,7 +147,8 @@ describe('MD-019 Markdown extras: highlight and callouts', () => {
       ['quote', 'Hot'],
     ]);
     const out = writeMarkdown(readMarkdown('> [!NOTE] Remember\n> the body\n'));
-    expect(out).toContain('> [!NOTE] Remember\n>\n> the body');
+    // MD-026: the body follows its title line, as written.
+    expect(out).toContain('> [!NOTE] Remember\n> the body');
     expect(writeMarkdown(readMarkdown(out))).toBe(out);
   });
 });

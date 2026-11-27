@@ -3,7 +3,7 @@
  * and links kept up to date when a note is renamed — on the index of the
  * notes (FOLDER-025), so that a folder of thousands of notes stays quick.
  */
-import { readText, walk, type Entry, type StorageProvider } from '../fs';
+import { readText, relative, resolve, walk, type Entry, type StorageProvider } from '../fs';
 import { noteName, renameWikiLinks } from '../document/wiki-links';
 import { renameTag } from './tags';
 import { NoteIndex } from './note-index';
@@ -114,19 +114,66 @@ export class NoteVault {
   async renameLinks(from: string, to: string, skip?: string): Promise<string[]> {
     const oldName = noteName(from);
     const newName = noteName(to);
-    if (oldName === newName) return [];
     const index = await this.indexed();
-    const changed: string[] = [];
-    for (const n of index.notesLinkingName(oldName)) {
-      if (n === skip) continue;
-      const { text, count } = renameWikiLinks(await this.text(n), oldName, newName);
+    const changed = new Set<string>();
+    if (oldName !== newName) {
+      for (const n of index.notesLinkingName(oldName)) {
+        if (n === skip) continue;
+        const { text, count } = renameWikiLinks(await this.text(n), oldName, newName);
+        if (!count) continue;
+        await this.provider.write(n, new Blob([text]));
+        await index.refresh(n);
+        changed.add(n);
+      }
+    }
+    // FOLDER-031: relative Markdown links to the note, encoded or not, follow it.
+    const file = from.split('/').pop()!.toLowerCase();
+    for (const n of index.notes()) {
+      if (n === skip || n === to || n === from) continue;
+      const before = await this.text(n).catch(() => '');
+      if (!before.toLowerCase().includes(file) && !before.toLowerCase().includes(encodeURI(file).toLowerCase())) continue;
+      const { text, count } = renameMarkdownLinks(before, n, from, to);
       if (!count) continue;
       await this.provider.write(n, new Blob([text]));
       await index.refresh(n);
-      changed.push(n);
+      changed.add(n);
     }
-    return changed;
+    return [...changed];
   }
+}
+
+/**
+ * FOLDER-031: the relative Markdown links of the note at `notePath` pointing
+ * to `from`, rewritten to point to `to` (encoded as they were written).
+ */
+export function renameMarkdownLinks(text: string, notePath: string, from: string, to: string): { text: string; count: number } {
+  let count = 0;
+  const out = text.replace(/(\]\()(<[^>\n]+>|[^)\s]+)((?:\s+"[^"]*")?\))/g, (all, open: string, href: string, close: string) => {
+    const angle = href.startsWith('<');
+    const raw = angle ? href.slice(1, -1) : href;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(raw) || raw.startsWith('#')) return all;
+    const hash = raw.indexOf('#');
+    const path = hash >= 0 ? raw.slice(0, hash) : raw;
+    const sub = hash >= 0 ? raw.slice(hash) : '';
+    let decoded = path;
+    try {
+      decoded = decodeURI(path);
+    } catch {
+      /* written as it is */
+    }
+    let target: string;
+    try {
+      target = resolve(notePath, decoded);
+    } catch {
+      return all;
+    }
+    if (target !== from) return all;
+    count++;
+    const rel = relative(notePath, to);
+    const written = angle ? `<${rel}>` : decoded !== path || /\s/.test(rel) ? encodeURI(rel) : rel;
+    return `${open}${angle ? written : written}${sub}${close}`;
+  });
+  return { text: out, count };
 }
 
 export { noteName };
