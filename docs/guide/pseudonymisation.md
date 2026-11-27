@@ -24,9 +24,11 @@ first use, and must be acknowledged.
 ## What you need
 
 - **A list of people**: a CSV file (separator `;`, `,` or tab, found by
-  itself; UTF-8 with or without byte order mark, or Windows-1252) with a
-  last name column (`nom`, `last_name`…) and a first name column (`prenom`,
-  `first_name`…), and optionally `email` and `numero` (or `student_id`, `INE`…).
+  itself; UTF-8 with or without byte order mark, or Windows-1252), an Excel
+  workbook (`.xlsx`) or an OpenDocument spreadsheet (`.ods`) — or the
+  spreadsheet open in the application. You choose the sheet, the header row
+  and the columns; the usual names (`nom`, `prenom`, `last_name`,
+  `first_name`, `email`, `numero`, `student_id`, `INE`…) are proposed.
 - **A mapping table**: created the first time (a password of at least 10
   characters, a prefix for the pseudonyms, a deletion date), then opened
   again for the next runs, so that each person keeps the same pseudonym.
@@ -40,8 +42,17 @@ first use, and must be acknowledged.
    document has unsaved changes, you choose the file, or the document as it
    is now (then the parts the editor does not hold, such as text boxes, are
    left out).
-2. Choose the **list**: what was found is shown (separator, encoding,
-   columns, number of people, lines left out).
+2. Choose the **list**, then check what is proposed:
+   - the **sheet** (the first by default) and the **header row** (or none);
+   - the names in **two columns** (last name, first name) or in **one
+     column** (`MARTIN Léa`, `Léa Martin`, `Martin, Léa`), with the order of
+     the names — words in capitals are taken as the last name;
+   - the columns of the **e-mail** and of the **number**, if any.
+
+   The first people are shown as they will be read, with the rows left out.
+   When numbers come from number cells, check that none lost its leading
+   zeros (format the column as text in the spreadsheet). The columns you
+   choose are proposed again for a list with the same headers.
 3. **Open a table** (`.kdbx`) or fill in a new one.
 4. Set the **options** (see below), then **Pseudonymise**.
 5. Read the **report**, check what it lists, and **save the table**. Keep

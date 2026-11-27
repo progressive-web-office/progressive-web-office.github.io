@@ -1,13 +1,13 @@
 ---
 search: false
-description: Design note — local pseudonymisation of documents before they are shared (with a person, an examination board, a researcher or an AI assistant), and re-identification of what comes back (PSEUDO-001..PSEUDO-035).
+description: Design note — local pseudonymisation of documents before they are shared (with a person, an examination board, a researcher or an AI assistant), and re-identification of what comes back (PSEUDO-001..PSEUDO-040).
 ---
 
 # Pseudonymisation of documents (design note)
 
 - Status: **implemented** (`src/pseudo/`), except the assistant's pseudonymised mode (PSEUDO-031), the rasterised PDF (PSEUDO-024) and the removal of picture metadata (PSEUDO-034)
 - User guide: [Pseudonymising documents](../guide/pseudonymisation)
-- Requirements: [PSEUDO-001..PSEUDO-035](../requirements#_9ze-pseudonymisation-pseudo)
+- Requirements: [PSEUDO-001..PSEUDO-040](../requirements#_9ze-pseudonymisation-pseudo)
 - Scope: text documents, spreadsheets, presentations, Markdown and text
   files, PDF; one document or a folder; optionally, the AI assistant
 - Delivery: **one pull request, one commit** (§16)
@@ -645,9 +645,21 @@ The acknowledgement (notice version and date) is kept in `localStorage`
 
 The dialog has five steps:
 
-1. **List**: choose the CSV. The dialog shows the separator, encoding and
-   columns it found, the number of people, rejected lines, and the notes of
-   §5.4 before anything is processed.
+1. **List** (PSEUDO-004, PSEUDO-036..PSEUDO-039): a CSV or TSV file, an
+   Excel workbook or an OpenDocument spreadsheet, or the open spreadsheet
+   (as shown, not saved first). `src/pseudo/roster.ts` reads it into sheets
+   of text cells (packages through the hardened reader first, then the
+   application's XLSX and ODS readers; cached values of formulas, numbers
+   without decimals). The user chooses the sheet (the first by default), the
+   header row (the first of the first ten rows holding a known column name)
+   or none, and the columns: last and first name in two columns, or the full
+   name in one (`MARTIN Léa`, `Martin, Léa`; words in capitals are the last
+   name, otherwise the order chosen); e-mail and number. A preview shows the
+   first ten people as they will be read, the rows left out, and a warning
+   when numbers read from number cells have different lengths (lost leading
+   zeros). The columns chosen are remembered for the same headers
+   (`pwo.pseudo.columns`: headers only). Databases are left for later
+   (PSEUDO-040).
 2. **Table**: open a KDBX file, or create one with its deletion date and
    password.
 3. **Options**: last names alone (on), first names alone (off), pictures
@@ -684,7 +696,7 @@ kept **only in the table** (KDBX). A run never writes it next to the output.
 | Limit | Default | Note |
 |-------|---------|------|
 | input file | 50 MB | stricter than FILE-012 (200 MB) for opening; question Q5 |
-| CSV list | 1 MB, 5,000 lines | |
+| list of people (CSV, XLSX, ODS) | 20 MB, 5,000 rows | a workbook goes through the package checks first |
 | ZIP entries | 10,000 | |
 | uncompressed total | 300 MB, nested packages included | |
 | one entry | 100 MB | |

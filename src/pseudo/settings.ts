@@ -4,6 +4,8 @@
  * list of people and the table never go here.
  */
 import { DEFAULT_OPTIONS, type PseudoOptions } from './pipeline';
+import { foldText } from './normalize';
+import type { ColumnMapping } from './roster';
 
 const KEY = 'pwo.pseudo';
 const NOTICE_KEY = 'pwo.pseudo.notice';
@@ -48,3 +50,40 @@ export function acknowledgeNotice(now = new Date()): void {
 
 /** A list typed by the user: one item per line or comma. */
 export const parseList = (text: string): string[] => [...new Set(text.split(/[\n,;]/).map((s) => s.trim()).filter(Boolean))];
+
+// ---------------------------------------------------------------- columns of lists (PSEUDO-038)
+
+const MAPPINGS_KEY = 'pwo.pseudo.columns';
+const MAX_MAPPINGS = 30;
+
+/** The headers of a list, as a key: the headers only, never the rows. */
+export const headerSignature = (headers: readonly string[]): string => headers.map((h) => foldText(h.trim())).join('\u001f');
+
+type Remembered = Omit<ColumnMapping, 'header'>;
+
+function mappings(): [string, Remembered][] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(MAPPINGS_KEY) ?? '[]') as unknown;
+    return Array.isArray(raw) ? (raw.filter((x) => Array.isArray(x) && typeof x[0] === 'string' && typeof x[1] === 'object') as [string, Remembered][]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** The columns chosen last time for lists with these headers. */
+export function rememberedColumns(headers: readonly string[]): Remembered | undefined {
+  const sig = headerSignature(headers);
+  return mappings().find(([k]) => k === sig)?.[1];
+}
+
+export function rememberColumns(headers: readonly string[], mapping: ColumnMapping): void {
+  const sig = headerSignature(headers);
+  const { header: _h, ...columns } = mapping;
+  const kept = mappings().filter(([k]) => k !== sig);
+  kept.unshift([sig, columns]);
+  try {
+    localStorage.setItem(MAPPINGS_KEY, JSON.stringify(kept.slice(0, MAX_MAPPINGS)));
+  } catch {
+    /* storage full or blocked */
+  }
+}

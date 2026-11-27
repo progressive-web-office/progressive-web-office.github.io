@@ -2855,9 +2855,12 @@ export class App {
       }
     }
     const { openPseudonymisation } = await import('../pseudo/ui/dialog');
+    // PSEUDO-039: the open spreadsheet, as it is shown, offered as the list of people.
+    const sheet = doc && doc.kind === 'spreadsheet' && doc.view.save ? doc : null;
     await openPseudonymisation({
       host: this.root,
       ...(file ? { file } : {}),
+      ...(sheet ? { openSpreadsheet: { name: sheet.name, read: async () => sheet.view.save!(sheet.format) } } : {}),
       notify: (message) => this.showNotice(message),
       openOutput: async (name, bytes) => {
         if ((await this.openBytes(name, bytes)) && this.current?.view.setReadOnly) this.setReadOnly(true);

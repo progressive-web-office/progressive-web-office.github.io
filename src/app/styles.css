@@ -2235,3 +2235,6 @@ button[data-icon]:not(.card):not(.template-card):not(.template-tab):not(.start-l
 .pseudo-thumb { display: block; max-width: 160px; max-height: 120px; border: 1px solid var(--border); margin: 2px 0 0 24px; background: #fff; }
 .pseudo-expired { border-left: 3px solid var(--danger); padding-left: 8px; }
 .dialog-actions.start { justify-content: flex-start; flex-wrap: wrap; align-items: center; }
+.pseudo-list-columns { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 12px; align-items: end; }
+.pseudo-list-table { border-collapse: collapse; font-size: 0.9rem; margin-top: 6px; }
+.pseudo-list-table th, .pseudo-list-table td { border: 1px solid var(--border); padding: 2px 6px; text-align: left; }

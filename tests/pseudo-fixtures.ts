@@ -200,6 +200,95 @@ export function rosters(): RosterFixture[] {
   ];
 }
 
+// ---------------------------------------------------------------- lists in spreadsheets (PSEUDO-004, PSEUDO-036..PSEUDO-039)
+
+type CellValue = string | number | null;
+
+const colRef = (i: number): string => {
+  let s = '';
+  for (let n = i + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s;
+  return s;
+};
+
+/** A workbook made of sheets of values (strings as shared strings, numbers as numbers). */
+export function xlsxWorkbook(sheets: { name: string; rows: CellValue[][] }[]): Uint8Array {
+  const strings: string[] = [];
+  const sid = (v: string): number => {
+    const i = strings.indexOf(v);
+    return i >= 0 ? i : strings.push(v) - 1;
+  };
+  const sheetXml = (rows: CellValue[][]): string =>
+    `${XML}<worksheet xmlns="${SML}"><sheetData>${rows
+      .map((r, ri) => `<row r="${ri + 1}">${r.map((v, ci) => (v === null ? '' : typeof v === 'number' ? `<c r="${colRef(ci)}${ri + 1}"><v>${v}</v></c>` : `<c r="${colRef(ci)}${ri + 1}" t="s"><v>${sid(v)}</v></c>`)).join('')}</row>`)
+      .join('')}</sheetData></worksheet>`;
+  const sheetParts = sheets.map((sh) => sheetXml(sh.rows));
+  const entries: Entries = {
+    '[Content_Types].xml':
+      `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>` +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+      sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') +
+      '<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/></Types>',
+    '_rels/.rels': `${XML}<Relationships xmlns="${PKG_RT}"><Relationship Id="rId1" Type="${RT}/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
+    'xl/workbook.xml': `${XML}<workbook xmlns="${SML}" xmlns:r="${RT}"><sheets>${sheets.map((sh, i) => `<sheet name="${esc(sh.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>`,
+    'xl/_rels/workbook.xml.rels': `${XML}<Relationships xmlns="${PKG_RT}">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="${RT}/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rIdS" Type="${RT}/sharedStrings" Target="sharedStrings.xml"/></Relationships>`,
+  };
+  sheetParts.forEach((x, i) => (entries[`xl/worksheets/sheet${i + 1}.xml`] = x));
+  entries['xl/sharedStrings.xml'] = `${XML}<sst xmlns="${SML}" count="${strings.length}" uniqueCount="${strings.length}">${strings.map((v) => `<si><t>${esc(v)}</t></si>`).join('')}</sst>`;
+  return zip(entries);
+}
+
+/** An OpenDocument spreadsheet made of sheets of values. */
+export function odsWorkbook(sheets: { name: string; rows: CellValue[][] }[]): Uint8Array {
+  const cell = (v: CellValue): string =>
+    v === null ? '<table:table-cell/>' : typeof v === 'number' ? `<table:table-cell office:value-type="float" office:value="${v}"><text:p>${v}</text:p></table:table-cell>` : `<table:table-cell office:value-type="string"><text:p>${esc(v)}</text:p></table:table-cell>`;
+  const content =
+    `${XML}<office:document-content ${ODF_NS}><office:body><office:spreadsheet>` +
+    sheets.map((sh) => `<table:table table:name="${esc(sh.name)}">${sh.rows.map((r) => `<table:table-row>${r.map(cell).join('')}</table:table-row>`).join('')}</table:table>`).join('') +
+    '</office:spreadsheet></office:body></office:document-content>';
+  return zip(
+    {
+      mimetype: 'application/vnd.oasis.opendocument.spreadsheet',
+      'META-INF/manifest.xml': `${XML}<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.3"><manifest:file-entry manifest:full-path="/" manifest:media-type="application/vnd.oasis.opendocument.spreadsheet"/><manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/></manifest:manifest>`,
+      'content.xml': content,
+    },
+    ['mimetype'],
+  );
+}
+
+export interface ListFixture {
+  name: string;
+  bytes: Uint8Array;
+  why: string;
+}
+
+/**
+ * Lists in spreadsheets: a title above the header, the names in one column
+ * ("NOM Prénom"), numbers as numbers (one of them lost its leading zeros), a
+ * second sheet with two columns; an ODS with two columns and a sheet before
+ * it holding no names.
+ */
+export function listSpreadsheets(): ListFixture[] {
+  const full = (p: FixturePerson): string => `${p.last.toUpperCase()} ${p.first}`;
+  const groupA: CellValue[][] = [
+    ['Liste du groupe A', null, null],
+    [null, null, null],
+    ['N° étudiant', 'NOM Prénom', 'Courriel'],
+    ...PEOPLE.slice(0, 8).map((p, i): CellValue[] => [i === 7 ? 123 : Number(p.number ?? 21900110 + i), full(p), p.email ?? null]),
+  ];
+  const groupB: CellValue[][] = [['Nom', 'Prénom'], ...PEOPLE.slice(8).map((p): CellValue[] => [p.last, p.first])];
+  return [
+    { name: 'groups.xlsx', bytes: xlsxWorkbook([{ name: 'Groupe A', rows: groupA }, { name: 'Groupe B', rows: groupB }]), why: 'title above the header, one column of full names, numbers as numbers, two sheets' },
+    {
+      name: 'list.ods',
+      bytes: odsWorkbook([
+        { name: 'Notes', rows: [['Consigne', 'Rendre le TP avant vendredi']] },
+        { name: 'Liste', rows: [['Nom', 'Prénom', 'Mail'], ...PEOPLE.map((p): CellValue[] => [p.last, p.first, p.email ?? null])] },
+      ]),
+      why: 'a first sheet without names, then two columns',
+    },
+  ];
+}
+
 // ---------------------------------------------------------------- common decoys
 
 /** Texts that must never be changed (common words, scientists, units). */
@@ -1096,6 +1185,7 @@ export async function writeFixtures(dir: string): Promise<void> {
     manifest[f.name] = rest;
   }
   for (const r of rosters()) writeFileSync(join(dir, 'lists', r.name), r.bytes);
+  for (const l of listSpreadsheets()) writeFileSync(join(dir, 'lists', l.name), l.bytes);
   for (const h of hostilePackages()) writeFileSync(join(dir, 'refused', h.name), h.bytes);
   writeFileSync(join(dir, 'manifest.json'), JSON.stringify({ people: PEOPLE, documents: manifest, lists: rosters().map((r) => ({ name: r.name, expect: r.expect })), refused: hostilePackages().map((h) => ({ name: h.name, reason: h.reason })) }, null, 2));
 }

@@ -1,7 +1,7 @@
 import { expect, test, type Download, type Page } from '@playwright/test';
 import { unzipSync, strFromU8 } from 'fflate';
 import { openApp, openFile } from './helpers';
-import { docxFixture, rosters } from '../tests/pseudo-fixtures';
+import { docxFixture, listSpreadsheets, rosters } from '../tests/pseudo-fixtures';
 
 async function bytesOf(d: Download): Promise<Buffer> {
   const chunks: Buffer[] = [];
@@ -36,7 +36,7 @@ async function chooseList(page: Page, dialog: ReturnType<Page['getByRole']>): Pr
   const chooser = page.waitForEvent('filechooser');
   await dialog.getByRole('button', { name: 'Choose the list…' }).click();
   await (await chooser).setFiles({ name: list.name, mimeType: 'text/csv', buffer: Buffer.from(list.bytes) });
-  await expect(dialog.getByText(/16 people in list-semicolon-utf8\.csv/)).toBeVisible();
+  await expect(dialog.getByText(/16 people read from list-semicolon-utf8\.csv/)).toBeVisible();
 }
 
 test.describe('PSEUDO-028 pseudonymise a copy of the open document', () => {
@@ -192,5 +192,58 @@ test.describe('PSEUDO-029 a folder into an output folder', () => {
     });
     expect(md).toMatch(/^Nom : ETU-\d{3}\n$/);
     expect(outside).toEqual([]);
+  });
+});
+
+test.describe('PSEUDO-004 PSEUDO-036 PSEUDO-037 a list in a spreadsheet', () => {
+  test('the sheet, the header row and the columns are chosen, the people shown as they will be read', async ({ page }) => {
+    const errors = await openApp(page);
+    const outside = await blockNetwork(page);
+    await page.getByRole('button', { name: 'Pseudonymise…' }).click();
+    await acknowledgeNotice(page);
+    const dialog = page.getByRole('dialog', { name: 'Pseudonymisation' });
+    const groups = listSpreadsheets().find((l) => l.name === 'groups.xlsx')!;
+    const chooser = page.waitForEvent('filechooser');
+    await dialog.getByRole('button', { name: 'Choose the list…' }).click();
+    await (await chooser).setFiles({ name: groups.name, mimeType: 'application/octet-stream', buffer: Buffer.from(groups.bytes) });
+    // The first sheet by default; the header row found below the title; the names in one column.
+    await expect(dialog.getByLabel('Sheet')).toHaveValue('0');
+    await expect(dialog.getByLabel('Header row')).toHaveValue('2');
+    await expect(dialog.getByLabel('Full name in one column')).toBeChecked();
+    await expect(dialog.getByText('8 people read from groups.xlsx.')).toBeVisible();
+    await expect(dialog.getByText(/may have lost their leading zeros/)).toBeVisible();
+    const firstRow = dialog.getByRole('table', { name: 'The people as they will be read' }).locator('tbody tr').first();
+    await expect(firstRow.locator('td')).toHaveText(['MARTIN', 'Léa', 'lea.martin@etu.example.org', '21900101']);
+    // The order of the names, then the number column, changed by the user.
+    await dialog.getByLabel('Order of the names').selectOption('first-last');
+    await expect(firstRow.locator('td').nth(0)).toHaveText('Léa');
+    await dialog.getByLabel('Number', { exact: true }).selectOption('');
+    await expect(firstRow.locator('td').nth(3)).toHaveText('');
+    // Another sheet: two columns.
+    await dialog.getByLabel('Sheet').selectOption({ label: 'Groupe B' });
+    await expect(dialog.getByLabel('Last name and first name in two columns')).toBeChecked();
+    await expect(firstRow.locator('td').nth(0)).toHaveText('Force');
+    await expect(dialog.getByText('8 people read from groups.xlsx.')).toBeVisible();
+    expect(outside).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+
+  test('PSEUDO-039 the open spreadsheet is offered as the list', async ({ page }) => {
+    const errors = await openApp(page);
+    const list = listSpreadsheets().find((l) => l.name === 'list.ods')!;
+    await openFile(page, list.name, Buffer.from(list.bytes));
+    await expect(page.getByRole('tab', { name: 'Liste' })).toBeVisible();
+    await page.getByRole('button', { name: 'Pseudonymise…' }).click();
+    const choice = page.getByRole('dialog', { name: 'Pseudonymisation' });
+    await choice.getByLabel('A folder, into another folder').check();
+    await choice.getByRole('button', { name: 'Continue' }).click();
+    await acknowledgeNotice(page);
+    const dialog = page.getByRole('dialog', { name: 'Pseudonymisation' });
+    await dialog.getByRole('button', { name: 'Use the open spreadsheet (list.ods)' }).click();
+    await expect(dialog.getByLabel('Sheet')).toHaveValue('0');
+    await expect(dialog.getByText('Choose the column of the last names (or of the full names).')).toBeVisible();
+    await dialog.getByLabel('Sheet').selectOption({ label: 'Liste' });
+    await expect(dialog.getByText('16 people read from list.ods.')).toBeVisible();
+    expect(errors).toEqual([]);
   });
 });
