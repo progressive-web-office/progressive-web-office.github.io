@@ -5,16 +5,18 @@
  */
 import { Plugin, PluginKey, type EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { WIKI } from '../wiki-links';
+import { WIKI, defaultLabel } from '../wiki-links';
 import { schema } from './schema';
 
-export type CompletionKind = 'link' | 'tag' | 'snippet';
+export type CompletionKind = 'link' | 'tag' | 'snippet' | 'heading' | 'block';
 
 export interface CompletionQuery {
   kind: CompletionKind;
   query: string;
   /** Characters typed, trigger included, replaced on accepting. */
   length: number;
+  /** FOLDER-028: the note whose headings or blocks are listed (empty: this note). */
+  note?: string;
 }
 
 /** What the text before the cursor asks to complete, if anything. */
@@ -22,6 +24,9 @@ export function completionQuery(before: string): CompletionQuery | null {
   // DOC-037: `;;` and a snippet's name.
   const snippet = /(?:^|\s);;([\p{L}\p{N}_-]{0,40})$/u.exec(before);
   if (snippet) return { kind: 'snippet', query: snippet[1]!, length: snippet[1]!.length + 2 };
+  // FOLDER-028: `[[note#` lists its headings, `[[note#^` its blocks.
+  const sub = /\[\[([^[\]|#\n]{0,60})#(\^?)([^[\]|#\n]{0,60})$/.exec(before);
+  if (sub) return { kind: sub[2] ? 'block' : 'heading', note: sub[1]!, query: sub[3]!, length: sub[0].length };
   const link = /\[\[([^[\]|#\n]{0,60})$/.exec(before);
   if (link) return { kind: 'link', query: link[1]!, length: link[0].length };
   const tag = /(?:^|[\s(])#([\p{L}\p{N}_/-]{1,40})$/u.exec(before);
@@ -45,7 +50,11 @@ export function rankCompletions(items: string[], query: string, max = 8, keepExa
 }
 
 /** Where completions come from (the open folder). */
-export type CompletionSource = (kind: CompletionKind) => Promise<string[]> | string[] | undefined;
+export type CompletionSource = (kind: CompletionKind, note?: string) => Promise<string[]> | string[] | undefined;
+
+/** FOLDER-028: a block is offered as `its text… ^id`. */
+export const blockItem = (text: string, id: string): string => `${text.length > 60 ? `${text.slice(0, 59)}…` : text} ^${id}`;
+export const blockOfItem = (item: string): string => /\^([A-Za-z0-9-]+)$/.exec(item)?.[1] ?? '';
 
 interface State {
   q: CompletionQuery | null;
@@ -78,6 +87,11 @@ export function acceptCompletion(view: EditorView, q: CompletionQuery, item: str
   if (q.kind === 'link') {
     // A wiki link, as `[[item]]` in the note once saved.
     tr.replaceWith(from, to, schema.text(item, [schema.marks.link!.create({ href: WIKI + item })]));
+  } else if (q.kind === 'heading' || q.kind === 'block') {
+    // FOLDER-028: `[[note#heading]]`, `[[note#^id]]` (a block item ends with its identifier).
+    const sub = q.kind === 'block' ? `^${blockOfItem(item)}` : item;
+    const note = q.note ?? '';
+    tr.replaceWith(from, to, schema.text(defaultLabel(note, sub), [schema.marks.link!.create({ href: `${WIKI}${note}#${sub}` })]));
   } else {
     tr.insertText(`#${item}`, from, to);
   }
@@ -86,7 +100,7 @@ export function acceptCompletion(view: EditorView, q: CompletionQuery, item: str
   view.focus();
 }
 
-export function completionPlugin(source: CompletionSource, label: (kind: CompletionKind) => string, onSnippet?: (name: string) => void): Plugin<State> {
+export function completionPlugin(source: CompletionSource, label: (kind: CompletionKind) => string, onSnippet?: (name: string) => void, onAccepted?: (q: CompletionQuery, item: string) => void): Plugin<State> {
   let list: HTMLUListElement | null = null;
   let items: string[] = [];
   let active = 0;
@@ -114,6 +128,7 @@ export function completionPlugin(source: CompletionSource, label: (kind: Complet
           const q = current!;
           close();
           acceptCompletion(view, q, item, onSnippet);
+          onAccepted?.(q, item);
         });
         return li;
       }),
@@ -123,9 +138,9 @@ export function completionPlugin(source: CompletionSource, label: (kind: Complet
 
   const open = async (view: EditorView, q: CompletionQuery): Promise<void> => {
     const mine = ++request;
-    const all = (await source(q.kind)) ?? [];
+    const all = (await source(q.kind, q.note)) ?? [];
     if (mine !== request) return;
-    const found = rankCompletions(all, q.query, q.kind === 'snippet' ? 12 : 8, q.kind === 'snippet');
+    const found = rankCompletions(all, q.query, q.kind === 'snippet' ? 12 : 8, q.kind === 'snippet' || q.kind === 'heading' || q.kind === 'block');
     if (!found.length) return close();
     current = q;
     items = found;
@@ -169,6 +184,7 @@ export function completionPlugin(source: CompletionSource, label: (kind: Complet
           const item = items[active]!;
           close();
           acceptCompletion(view, q, item, onSnippet);
+          onAccepted?.(q, item);
           return true;
         }
         if (event.key === 'Escape') {

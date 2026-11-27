@@ -35,6 +35,7 @@ src/
   vault/      vaults of passwords: KDBX 4 (kdbxweb, Argon2 by hash-wasm), TOTP
   datamodel/  data models: conceptual, logical, SQL
   sqlite/     SQLite databases as documents (SQLite in the code sandbox)
+  canvas/     canvases in the JSON Canvas 1.0 format: model, view, editing
   pseudo/     pseudonymisation of documents before sharing: hardened ZIP/XML
               reading, detection engine, package/text/PDF adapters, output
               check, mapping table (KDBX), re-identification, its window

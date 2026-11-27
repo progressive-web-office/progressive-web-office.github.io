@@ -43,7 +43,7 @@ export function formatLabel(format: DocumentFormat): string {
 
 
 /** File extensions accepted by the open dialog. */
-export const ACCEPTED_EXTENSIONS = ['.docx', '.odt', '.md', '.markdown', '.mdz', '.textpack', '.tex', '.jl', '.zip', '.xlsx', '.ods', '.csv', '.tsv', '.pptx', '.odp', '.pdf', '.ott', '.ots', '.otp', '.dotx', '.xltx', '.potx', '.txt', '.c', '.h', '.cpp', '.hpp', '.py', '.java', '.js', '.ts', '.json', '.html', '.css', '.mcd', '.sqlite', '.sqlite3', '.db', '.kdbx', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ora'];
+export const ACCEPTED_EXTENSIONS = ['.docx', '.odt', '.md', '.markdown', '.mdz', '.textpack', '.tex', '.jl', '.zip', '.xlsx', '.ods', '.csv', '.tsv', '.pptx', '.odp', '.pdf', '.ott', '.ots', '.otp', '.dotx', '.xltx', '.potx', '.txt', '.c', '.h', '.cpp', '.hpp', '.py', '.java', '.js', '.ts', '.json', '.html', '.css', '.mcd', '.base', '.sqlite', '.sqlite3', '.db', '.kdbx', '.canvas', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ora'];
 
 export function formatKind(format: DocumentFormat): DocumentKind {
   switch (format) {
@@ -125,7 +125,7 @@ export function detectFormat(name: string, bytes: Uint8Array): DocumentFormat | 
 
 /** Text and source files (FILE-022), by extension. */
 const TEXT_EXTENSIONS = new Set(
-  ('txt text log nfo mcd c h cpp cc cxx c++ hpp hh hxx ino py pyw pyi ipynb java kt kts scala groovy gradle js mjs cjs ts mts cts tsx jsx vue svelte ' +
+  ('txt text log nfo mcd canvas base c h cpp cc cxx c++ hpp hh hxx ino py pyw pyi ipynb java kt kts scala groovy gradle js mjs cjs ts mts cts tsx jsx vue svelte ' +
     'json jsonc json5 geojson xml xsd xsl xslt html htm xhtml css scss sass less sh bash zsh fish ps1 psm1 bat cmd r rmd qmd m mat jl rs go rb php pl pm lua ' +
     'swift dart hs lhs ml mli fs fsi fsx cs vb sql yaml yml toml ini cfg conf properties env bib bbl sty cls bst dtx ins asm s v sv vhd vhdl ' +
     'f f77 f90 f95 f03 for pas pp adb ads lisp lsp scm ss rkt clj cljs el erl hrl ex exs elm nim zig cmake mk mak diff patch srt vtt rst adoc asciidoc org ' +
@@ -220,11 +220,11 @@ function detectZipFormat(bytes: Uint8Array): DocumentFormat | null {
   const mains = tex.filter((p) => /\\documentclass/.test(strFromU8(zip[p] ?? EMPTY)));
   if (tex.length && mains.length <= 1 && !foreign && !files.some((p) => /\.(md|markdown)$/i.test(p))) return 'texzip';
   // MD-014: a plain ZIP holding a single Markdown file (and assets) is imported as MDZ;
-  // several notes, or an Obsidian vault, are a folder (FILE-033).
+  // several notes, or a note next to the hidden settings folder of a notes application, are a folder (FILE-033).
   // MD-011: a TextBundle (`text.md` next to `info.json`) is one document, whatever its assets hold.
   if (files.some((p) => /^([^/]+\.textbundle\/)?text\.(md|markdown)$/i.test(p)) && files.some((p) => /^([^/]+\.textbundle\/)?info\.json$/i.test(p))) return 'mdz';
   const notes = files.filter((p) => /\.(md|markdown)$/i.test(p) && !/(^|\/)\.[^/]+\//.test(p));
-  const vault = files.some((p) => /(^|\/)\.obsidian\//.test(p));
+  const vault = files.some((p) => /(^|\/)\.[^/.][^/]*\//.test(p) && !/(^|\/)__MACOSX\//.test(p));
   if (notes.length === 1 && !vault && !foreign && !tex.length) return 'mdz';
   return null;
 }

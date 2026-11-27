@@ -1,4 +1,5 @@
 /** Read/write a rich document in any supported text format. */
+import { forExport } from './note-export';
 import { acceptAll } from './changes';
 import type { DocumentFormat } from '../core/format';
 import { readDocx } from './docx-reader';
@@ -41,6 +42,8 @@ export async function readDocument(format: TextFormat, bytes: Uint8Array, opts: 
 }
 
 export function writeDocument(doc: RichDocument, format: TextFormat, opts: WriteOptions = {}): Uint8Array {
+  // MD-020, MD-024: notes written to other formats lose their comments, their tasks are drawn as characters.
+  if (format !== 'md' && format !== 'mdz') doc = forExport(doc);
   switch (format) {
     case 'docx':
       return writeDocx(doc, opts);

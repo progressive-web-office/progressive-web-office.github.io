@@ -87,8 +87,9 @@ function noteTasks(text: string): NoteEntry['tasks'] {
     const f = /^\s*(`{3,}|~{3,})/.exec(line)?.[1];
     if (f && (!fence || f.startsWith(fence))) fence = fence ? undefined : f;
     if (fence || f) return;
-    const m = /^\s*[-*+]\s+\[([ xX])\]\s+(.*?)\s*$/.exec(line);
-    if (m) out.push([i + 1, m[2]!, m[1] !== ' ']);
+    // MD-020: every one-character state (`[ ]`, `[x]`, `[/]`, `[-]`…); only `x` is done.
+    const m = /^\s*(?:[-*+]|\d+[.)])\s+\[([^\]\n])\]\s+(.*?)\s*$/.exec(line);
+    if (m) out.push([i + 1, m[2]!, m[1] === 'x' || m[1] === 'X']);
   });
   return out;
 }

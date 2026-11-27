@@ -69,8 +69,8 @@ describe('CODE-006 Markdown code cells', () => {
   it('keeps ordinary fences and lone output-looking blocks as code', () => {
     const doc = readMarkdown('```python\nprint(1)\n```\n\n```text {output}\nstray\n```\n');
     expect(doc.blocks).toEqual([
-      { type: 'paragraph', style: 'code', runs: [{ text: 'print(1)' }] },
-      { type: 'paragraph', style: 'code', runs: [{ text: 'stray' }] },
+      { type: 'paragraph', style: 'code', codeInfo: 'python', runs: [{ text: 'print(1)' }] },
+      { type: 'paragraph', style: 'code', codeInfo: 'text {output}', runs: [{ text: 'stray' }] },
     ]);
   });
 

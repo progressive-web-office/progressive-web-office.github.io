@@ -112,6 +112,14 @@ group is not a commitment.
 
 ### Notes and knowledge
 
+- ✅ Notes written as they are: tasks, code languages, picture sizes, raw
+  HTML, comments, block identifiers, folding callouts (MD-020..MD-026);
+  embeds of notes, PDF pages and media, heading and block completion, outline,
+  template variables, Markdown links following a renamed note (MD-027, MD-028,
+  FOLDER-028..FOLDER-031); canvases in JSON Canvas 1.0 (CANVAS-001..004);
+  `.base` views of notes (NOTE-004..006); next: an interactive graph of the
+  notes
+
 - ✅ Tags (`#tag` and front matter keywords): a tag panel with counts,
   renaming across the folder, search by tag (FOLDER-017), colours
   (FOLDER-023)

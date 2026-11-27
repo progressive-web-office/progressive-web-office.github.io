@@ -131,6 +131,46 @@ function mathBlock(state: StateBlock, startLine: number, endLine: number, silent
 export const MARK_COLOUR = '#fff176';
 
 /** MD-019: `==text==`, highlighted (its content parsed as inline Markdown). */
+/** MD-024: an inline comment of the note, `%%hidden%%`. */
+function commentInline(state: StateInline, silent: boolean): boolean {
+  const start = state.pos;
+  const src = state.src;
+  if (src.charCodeAt(start) !== 0x25 || src.charCodeAt(start + 1) !== 0x25) return false;
+  const end = src.indexOf('%%', start + 2);
+  if (end < 0 || end + 2 > state.posMax) return false;
+  if (!silent) state.push('md_comment', '', 0).content = src.slice(start + 2, end);
+  state.pos = end + 2;
+  return true;
+}
+
+/** MD-024: a comment block, from a line starting with `%%` to a line ending with `%%`, kept as written. */
+function commentBlock(state: StateBlock, startLine: number, endLine: number, silent: boolean): boolean {
+  const lineText = (n: number): string => state.src.slice(state.bMarks[n]! + state.tShift[n]!, state.eMarks[n]);
+  if (state.sCount[startLine]! - state.blkIndent >= 4) return false;
+  const first = lineText(startLine);
+  if (!first.startsWith('%%')) return false;
+  let last = startLine;
+  // `%%text%%` alone on its line is an inline comment of a paragraph, unless it is all the block.
+  if (!(first.trim().length > 2 && first.trim().endsWith('%%'))) {
+    for (last = startLine + 1; last < endLine; last++) if (lineText(last).trimEnd().endsWith('%%')) break;
+    if (last >= endLine) return false;
+  }
+  if (silent) return true;
+  state.line = last + 1;
+  const token = state.push('md_comment_block', '', 0);
+  token.block = true;
+  token.content = state.getLines(startLine, last + 1, state.sCount[startLine]!, false).replace(/\n$/, '');
+  token.map = [startLine, state.line];
+  return true;
+}
+
+/** MD-025: `text ^block-id`: the identifier at the end of a block. */
+const BLOCK_ID = /[ \t]\^([A-Za-z0-9][A-Za-z0-9-]*)[ \t]*$/;
+const BLOCK_ID_ALONE = /^\^([A-Za-z0-9][A-Za-z0-9-]*)$/;
+
+/** MD-020: `[ ] `, `[x] `, `[/] `… at the start of a list item. */
+const TASK = /^\[([^\]\n])\][ \u00a0]/;
+
 function highlightInline(state: StateInline, silent: boolean): boolean {
   const start = state.pos;
   const max = state.posMax;
@@ -216,6 +256,8 @@ function getParser(): MarkdownIt {
     parser = new MarkdownItCallable('commonmark', { html: true }).enable(['table', 'strikethrough']).use(footnotePlugin);
     parser.inline.ruler.after('escape', 'math_inline', mathInline);
     parser.inline.ruler.after('emphasis', 'mark', highlightInline);
+    parser.inline.ruler.before('escape', 'md_comment', commentInline);
+    parser.block.ruler.before('paragraph', 'md_comment_block', commentBlock, { alt: ['paragraph', 'reference', 'blockquote', 'list'] });
     parser.inline.ruler.after('escape', 'pwo_field', fieldInline);
     parser.inline.ruler.before('escape', 'pwo_hfill', fillInline);
     parser.inline.ruler.before('link', 'pwo_input', inputInline);
@@ -226,6 +268,24 @@ function getParser(): MarkdownIt {
 }
 
 export { CELL_LANGS };
+
+/** FOLDER-028: the headings and blocks of a note, with the last line of each (0-based), for links and identifiers. */
+export function markdownBlocks(source: string): { kind: 'heading' | 'block'; text: string; id?: string; line: number }[] {
+  const tokens = getParser().parse(source, {});
+  const out: { kind: 'heading' | 'block'; text: string; id?: string; line: number }[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i]!;
+    if ((tok.type !== 'paragraph_open' && tok.type !== 'heading_open') || !tok.map) continue;
+    const inline = tokens[i + 1];
+    if (inline?.type !== 'inline') continue;
+    const raw = inline.content.replace(/\s+/g, ' ').trim();
+    const id = BLOCK_ID.exec(raw);
+    const text = (id ? raw.slice(0, id.index) : raw).replace(/^\[[^\]\n]\][ \u00a0]/, '').trim();
+    if (!text || TASK.test(text) && !text.slice(3).trim()) continue;
+    out.push({ kind: tok.type === 'heading_open' ? 'heading' : 'block', text, ...(id ? { id: id[1]! } : {}), line: tok.map[1] - 1 });
+  }
+  return out;
+}
 
 /** `python {run}` -> language and attribute flags. */
 function parseFenceInfo(info: string): { lang: string; flags: string[] } {
@@ -267,9 +327,22 @@ function resolveImage(src: string, opts: MarkdownReadOptions): ResolvedImage | u
 }
 
 /** An image run; a picture read from next to the note keeps its link, to be written back as it was. */
+/** MD-022: `300` or `300x200`, a size written in a link. */
+export function linkSize(text: string): { width: number; height?: number } | undefined {
+  const m = /^(\d{1,5})(?:x(\d{1,5}))?$/.exec(text.trim());
+  return m ? { width: Number(m[1]), ...(m[2] ? { height: Number(m[2]) } : {}) } : undefined;
+}
+
 function imageRun(src: string, alt: string, title: string | undefined, doc: RichDocument, opts: MarkdownReadOptions): Run {
   const resolved = resolveImage(src, opts);
   const run: Run = { image: resolved ? addResource(doc, resolved.data, resolved.mediaType, resolved.name) : '' };
+  // MD-022: `![alt|300](…)`.
+  const bar = alt.lastIndexOf('|');
+  const size = bar >= 0 ? linkSize(alt.slice(bar + 1)) : undefined;
+  if (size) {
+    alt = alt.slice(0, bar);
+    Object.assign(run, size, { linkSize: true });
+  }
   if (alt) run.alt = alt;
   if (title) run.title = title;
   if (!resolved || (opts.keepImageLinks && isRelativeImage(src))) run.src = src;
@@ -417,6 +490,8 @@ export function readMarkdown(source: string, opts: MarkdownReadOptions = {}): Ri
   let table: TableCell[][] | null = null;
   let row: TableCell[] | null = null;
   let heading: ParagraphStyle | null = null;
+  /** MD-020: the first paragraph of a list item may be a task. */
+  let itemStart = false;
 
   const push = (p: Paragraph): void => {
     if (row) return void row.push({ blocks: [p] });
@@ -454,6 +529,9 @@ export function readMarkdown(source: string, opts: MarkdownReadOptions = {}): Ri
       case 'ordered_list_close':
         lists.pop();
         break;
+      case 'list_item_open':
+        itemStart = true;
+        break;
       case 'blockquote_open':
         quoteDepth++;
         break;
@@ -466,8 +544,20 @@ export function readMarkdown(source: string, opts: MarkdownReadOptions = {}): Ri
         const brk = quoteDepth > 0 && !heading && kids[0]?.type === 'text' && CALLOUT.test(kids[0].content) ? kids.findIndex((k) => k.type === 'softbreak') : -1;
         if (brk > 0) {
           const head = newParagraph('normal');
+          head.joined = true;
           head.runs = normalizeRuns(inlineRuns(kids.slice(0, brk), doc, opts, noteRuns));
           push(head);
+        }
+        // MD-020: a task: its state is kept apart from the text.
+        let task: string | undefined;
+        const startsItem = itemStart && lists.length > 0 && !row;
+        itemStart = false;
+        if (startsItem && kids[0]?.type === 'text') {
+          const m = TASK.exec(kids[0].content);
+          if (m) {
+            task = m[1]!;
+            kids[0].content = kids[0].content.slice(m[0].length);
+          }
         }
         const runs = normalizeRuns(inlineRuns(brk > 0 ? kids.slice(brk + 1) : kids, doc, opts, noteRuns));
         // CODE-006: figures produced by the previous cell.
@@ -483,7 +573,22 @@ export function readMarkdown(source: string, opts: MarkdownReadOptions = {}): Ri
           if (widgets.length) target.output.widgets = [...(target.output.widgets ?? []), ...widgets];
           break;
         }
+        // MD-025: `^id` alone on its line names the block before it.
+        const alone = !heading && runs.length === 1 && isTextRun(runs[0]!) ? BLOCK_ID_ALONE.exec(runs[0].text.trim()) : null;
+        const previous = blocks[blocks.length - 1];
+        if (alone && previous?.type === 'paragraph' && !previous.blockId) {
+          previous.blockId = alone[1]!;
+          break;
+        }
         const p = newParagraph(heading ?? 'normal');
+        if (task !== undefined) p.task = task;
+        const lastRun = runs[runs.length - 1];
+        const lastText = lastRun && isTextRun(lastRun) && !lastRun.code ? lastRun : undefined;
+        const id = lastText ? BLOCK_ID.exec(lastText.text) : null;
+        if (lastText && id) {
+          p.blockId = id[1]!;
+          runs[runs.length - 1] = { ...lastText, text: lastText.text.slice(0, id.index) };
+        }
         // DOC-026: `<a id="…"></a>` anchors the paragraph.
         p.runs = normalizeRuns(
           runs.map((r) => {
@@ -531,8 +636,17 @@ export function readMarkdown(source: string, opts: MarkdownReadOptions = {}): Ri
         }
         const p = newParagraph('code');
         p.style = 'code';
+        // MD-021: the language (and the rest of the info string) is kept.
+        if (tok.type === 'fence' && tok.info.trim()) p.codeInfo = tok.info.trim();
         const code = tok.content.replace(/\n$/, '');
         if (code) p.runs = [{ text: code }];
+        push(p);
+        break;
+      }
+      case 'md_comment_block': {
+        const p = newParagraph();
+        p.raw = 'comment';
+        p.runs = [{ text: tok.content }];
         push(p);
         break;
       }
@@ -547,7 +661,11 @@ export function readMarkdown(source: string, opts: MarkdownReadOptions = {}): Ri
         // MD-018: pictures given as HTML (`<img>`, `<p align="center"><img …></p>`) are pictures.
         const pictures = /<img\b/i.test(html) && !/<\/?(?:table|ul|ol|pre|script)\b/i.test(html) ? htmlImages(html, doc, opts) : [];
         if (pictures.length) p.runs = pictures;
-        else if (html) p.runs = [{ text: html }];
+        else if (html) {
+          // MD-023: kept as written, shown sanitised.
+          p.raw = 'html';
+          p.runs = [{ text: html }];
+        }
         push(p);
         break;
       }
@@ -720,9 +838,13 @@ function inlineRuns(tokens: Token[], doc: RichDocument, opts: MarkdownReadOption
         else if (tag === '</u>') delete fmt.underline;
         else if (/^<br\s*\/?>$/.test(tag)) text('\n');
         else if (/^<img\b/.test(tag)) runs.push(...htmlImages(tok.content, doc, opts));
-        else text(tok.content);
+        // MD-023: other inline HTML is kept as written.
+        else text(tok.content, { rawHtml: true });
         break;
       }
+      case 'md_comment':
+        text(tok.content || ' ', { mdComment: true });
+        break;
       default:
         if (tok.content) text(tok.content);
     }

@@ -43,6 +43,13 @@ export function officeNewFiles(): NewFileKind[] {
         return blob(writePresentation(emptyPresentation(), pres as Parameters<typeof writePresentation>[1]));
       },
     },
+    // CANVAS-004: a canvas (JSON Canvas).
+    {
+      label: t('canvas.new'),
+      icon: '🧩',
+      name: `${untitled}.canvas`,
+      content: async () => blob((await import('../canvas/model')).emptyCanvasText()),
+    },
     {
       label: `${t('start.newDrawing')} (.svg)`,
       name: `${untitled}.svg`,

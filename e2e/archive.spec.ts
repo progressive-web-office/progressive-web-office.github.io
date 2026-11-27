@@ -192,13 +192,13 @@ test('renames the open file with a click on its name, keeping the extension (FIL
   expect(errors).toEqual([]);
 });
 
-test('opens a ZIP of Markdown notes (an Obsidian vault) as a folder, at its entry note, without asking for a main document (FILE-033)', async ({ page }) => {
+test('opens a ZIP of Markdown notes (a vault) as a folder, at its entry note, without asking for a main document (FILE-033)', async ({ page }) => {
   const errors = await openApp(page);
   const zip = zipSync({
     'R1.14-Fondamentaux-IA/00-Accueil.md': strToU8('# Accueil\n\nVoir [[01-Introduction]].\n'),
     'R1.14-Fondamentaux-IA/Cours/01-Introduction.md': strToU8('# Introduction\n\nLe début du cours.\n'),
     'R1.14-Fondamentaux-IA/Cours/02-Apprentissage.md': strToU8('# Apprentissage\n'),
-    'R1.14-Fondamentaux-IA/.obsidian/app.json': strToU8('{}'),
+    'R1.14-Fondamentaux-IA/.notes-app/app.json': strToU8('{}'),
   });
   await openFile(page, 'vault.zip', Buffer.from(zip), 'application/zip');
   await expect(page.getByRole('dialog', { name: 'Choose the main document' })).toHaveCount(0);

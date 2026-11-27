@@ -10,8 +10,31 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
 
 ### Added
 
+- **Notes written as they are** (MD-020..MD-026): task lists are check boxes
+  (every state kept, `[/]`, `[-]`…), code blocks keep and are coloured by
+  their language, sizes of pictures (`![[photo.png|300]]`) are applied and
+  kept, raw HTML is kept as written and HTML blocks are shown sanitised,
+  `%%comments%%` are hidden in reading mode and left out of other formats,
+  `^block` identifiers are kept and `[[Note#^id]]` opens the note at the
+  block, folded callouts fold and unfold — saving a note no longer changes
+  what it does not show.
+- **Embeds and navigation in notes** (MD-027, MD-028, FOLDER-028..FOLDER-031):
+  `![[Note]]`, `![[Note#Heading]]`, `![[Note#^id]]` are shown in place,
+  PDF pages, audio and video files too; `[[Note#` and `[[Note#^` complete
+  headings and blocks; an outline of the document beside it; template
+  variables in the folder's templates; relative Markdown links follow a
+  renamed or moved note.
+- **Canvases** (CANVAS-001..CANVAS-004): `.canvas` files in the open JSON
+  Canvas 1.0 format open as documents — text, note, picture, link and group
+  cards, arrows with labels and colours — moved around, zoomed, edited
+  (cards added, moved, resized, connected, coloured, deleted, undoable) and
+  saved keeping what is not known; a new canvas from the folder panel.
+- **Bases** (NOTE-004..NOTE-006): `.base` files open as views of the notes of
+  the folder — filters, formulas, display names, table and cards views with
+  sort, groups and limit — with what is not supported shown, a cell edited
+  into the note's front matter, and the file saved keeping the rest.
 - **A ZIP of Markdown notes opens as a folder** (FILE-033, MD-014, FILE-021):
-  a ZIP holding several notes — an Obsidian vault, for example — is shown
+  a ZIP holding several notes — a vault of notes, for example — is shown
   in the folder panel like the unzipped folder (tree, search, links between
   notes), at its entry note (`index.md`, `README.md`, `Home.md`,
   `00-Accueil.md`…), instead of asking for a main document and opening only

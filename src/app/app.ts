@@ -807,7 +807,12 @@ export class App {
       // A copy of the folder's template, a new document: saving asks where.
       await this.withBusy(async () => {
         try {
-          const bytes = new Uint8Array(await (await provider!.read(template.path)).arrayBuffer());
+          let bytes = new Uint8Array(await (await provider!.read(template.path)).arrayBuffer());
+          // FOLDER-030: `{{title}}`, `{{date}}`, `{{date:FORMAT}}`, `{{time}}` filled in a Markdown or text template.
+          if (/\.(md|markdown|txt)$/i.test(template.path)) {
+            const { fillFolderTemplate } = await import('../folder/templates');
+            bytes = new TextEncoder().encode(fillFolderTemplate(new TextDecoder().decode(bytes), template.name, new Date(), getLocale()));
+          }
           await this.openBytes(template.path.replace(/^.*\//, ''), bytes);
         } catch (err) {
           this.showError((err as Error).message);
@@ -1139,6 +1144,25 @@ export class App {
       folderDocuments: () => this.folderDocuments(),
       // DOC-036: tables of the open folder for a mail merge, and its results written there.
       folderDataFiles: () => this.folderRelative((p) => /\.(csv|tsv|xlsx|ods)$/i.test(p)),
+      embedFile: async (target) => {
+        const folder = this.folder;
+        if (!folder) return undefined;
+        const fs = await import('../fs');
+        const from = this.current?.folderPath ?? '';
+        const note = !/\.[a-z0-9]{1,5}$/i.test(target) || /\.(md|markdown)$/i.test(target);
+        let path = note ? await folder.vault.resolve(target.replace(/\.(md|markdown)$/i, ''), from) : undefined;
+        if (!path && !note) {
+          // Next to the note, else by its name anywhere in the folder, as pictures are found (MD-018).
+          const near = fs.resolve(fs.dirname(from), target);
+          if (await fs.exists(folder.provider, near)) path = near;
+          else {
+            const all = await fs.listFiles(folder.provider);
+            const lower = target.toLowerCase();
+            path = all.find((p) => p.toLowerCase() === lower || p.toLowerCase().endsWith(`/${lower}`));
+          }
+        }
+        return path ? { path, bytes: await fs.readBytes(folder.provider, path) } : undefined;
+      },
       readFolderFile: async (path) => {
         const { readBytes, resolve } = await import('../fs');
         return readBytes(this.folder!.provider, resolve(this.current?.folderPath ?? '', path));

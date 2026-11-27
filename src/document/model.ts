@@ -30,6 +30,10 @@ export interface TextFormat {
   /** A tracked insertion or deletion (REV-005). */
   inserted?: Revision;
   deleted?: Revision;
+  /** MD-024: a comment of the note (`%%…%%`), hidden in reading mode, kept on save. */
+  mdComment?: boolean;
+  /** MD-023: raw inline HTML of a Markdown file, shown and written as it is. */
+  rawHtml?: boolean;
 }
 
 /** Who made a tracked change, and when (REV-005). */
@@ -69,6 +73,8 @@ export interface ImageRun {
   /** Display size in CSS pixels, when known. */
   width?: number;
   height?: number;
+  /** MD-022: the size was written in the Markdown link (`![alt|300](…)`), and is written back there. */
+  linkSize?: boolean;
 }
 
 /** An equation, stored as LaTeX (MATH-001). */
@@ -334,8 +340,21 @@ export interface Paragraph extends ParagraphLayout, InColumns {
   named?: string;
   align?: Align;
   list?: ListInfo;
+  /** MD-020: a task of a list: its state as written between the brackets (` `, `x`, `/`, `-`…). */
+  task?: string;
+  /** MD-021: the info string of a code block (its language first, e.g. `js` or `python title="a.py"`). */
+  codeInfo?: string;
+  /** MD-025: the identifier of the block (`^id`), for links and embeds. */
+  blockId?: string;
+  /** MD-023, MD-024: a block kept as written — raw HTML, or a comment block between `%%` lines; its only run holds the source. */
+  raw?: 'html' | 'comment';
+  /** MD-026: a callout's title line, its body following it without a blank line (`> [!tip] Title` then `> body`). */
+  joined?: boolean;
   runs: Run[];
 }
+
+/** MD-020: done, for a task state. */
+export const taskDone = (state: string | undefined): boolean => state === 'x' || state === 'X';
 
 /** Monospaced font names: text in them is inline code. */
 export const MONO_FONT = /mono|courier|consolas|menlo|monaco|source code|fira code/i;
@@ -861,7 +880,7 @@ export function paragraph(text: string, opts: Partial<Omit<Paragraph, 'type' | '
   return { type: 'paragraph', style: opts.style ?? 'normal', ...opts, runs: text ? [{ text }] : [] };
 }
 
-const FORMAT_KEYS: (keyof TextFormat)[] = ['bold', 'italic', 'underline', 'strike', 'smallCaps', 'code', 'link', 'size', 'color', 'font', 'highlight'];
+const FORMAT_KEYS: (keyof TextFormat)[] = ['bold', 'italic', 'underline', 'strike', 'smallCaps', 'code', 'link', 'size', 'color', 'font', 'highlight', 'mdComment', 'rawHtml'];
 
 const commentKey = (f: TextFormat): string => (f.comments?.length ? [...f.comments].sort().join(' ') : '');
 const revisionKey = (r: Revision | undefined): string => (r ? `${r.author ?? ''}\u0000${r.date ?? ''}` : '');

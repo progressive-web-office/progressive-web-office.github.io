@@ -31,6 +31,11 @@ function paragraphAttrs(dom: HTMLElement, style: ParagraphStyle): Record<string,
     anchor: dom.dataset.anchor || null,
     solution: dom.dataset.solution === 'true',
     named: dom.dataset.named || null,
+    task: dom.dataset.task ?? null,
+    codeInfo: dom.dataset.codeInfo ?? null,
+    blockId: dom.dataset.blockId ?? null,
+    raw: dom.dataset.raw === 'html' || dom.dataset.raw === 'comment' ? dom.dataset.raw : null,
+    joined: dom.dataset.joined === 'true',
   };
   // Spacing is read back from the editor's own data attributes only (DOC-020).
   for (const k of LAYOUT_KEYS) {
@@ -68,6 +73,17 @@ function paragraphDom(node: PmNode): DOMOutputSpec {
   if (node.attrs.solution) attrs['data-solution'] = 'true';
   if (node.attrs.named) attrs['data-named'] = node.attrs.named as string;
   if (node.attrs.cellHeader !== null) attrs['data-cell-header'] = node.attrs.cellHeader as string;
+  if (node.attrs.task !== null) {
+    attrs['data-task'] = node.attrs.task as string;
+    attrs.class = `${attrs.class ?? ''} task${node.attrs.task === 'x' || node.attrs.task === 'X' ? ' task-done' : node.attrs.task === ' ' ? '' : ' task-other'}`.trim();
+  }
+  if (node.attrs.codeInfo !== null) attrs['data-code-info'] = node.attrs.codeInfo as string;
+  if (node.attrs.blockId !== null) attrs['data-block-id'] = node.attrs.blockId as string;
+  if (node.attrs.joined) attrs['data-joined'] = 'true';
+  if (node.attrs.raw !== null) {
+    attrs['data-raw'] = node.attrs.raw as string;
+    attrs.class = `${attrs.class ?? ''} raw-${node.attrs.raw as string}`.trim();
+  }
   if (listOrdered !== null) {
     attrs.class = `${attrs.class ?? ''} list-item`.trim();
     attrs['data-list'] = listOrdered ? 'ol' : 'ul';
@@ -103,6 +119,16 @@ export const schema = new Schema({
         cellSource: { default: null },
         /** DOC-053: a named style of the document. */
         named: { default: null },
+        /** MD-020: the state of a task of a list. */
+        task: { default: null },
+        /** MD-021: the info string of a code block. */
+        codeInfo: { default: null },
+        /** MD-025: the identifier of the block. */
+        blockId: { default: null },
+        /** MD-023, MD-024: a block kept as written (raw HTML, comment block). */
+        raw: { default: null },
+        /** MD-026: a callout's title followed by its body without a blank line. */
+        joined: { default: false },
       },
       parseDOM: [
         ...STYLES.filter((s) => /^h\d$/.test(s)).map((s) => ({ tag: s, getAttrs: (d: HTMLElement) => paragraphAttrs(d, s) })),
@@ -202,7 +228,7 @@ export const schema = new Schema({
       inline: true,
       group: 'inline',
       draggable: true,
-      attrs: { image: { default: '' }, src: { default: null }, alt: { default: null }, title: { default: null }, width: { default: null }, height: { default: null } },
+      attrs: { image: { default: '' }, src: { default: null }, alt: { default: null }, title: { default: null }, width: { default: null }, height: { default: null }, linkSize: { default: false } },
       parseDOM: [
         {
           tag: 'img[data-resource]',
@@ -334,6 +360,10 @@ export const schema = new Schema({
     smallCaps: { parseDOM: [{ tag: 'span.smallcaps' }, { style: 'font-variant=small-caps' }, { style: 'font-variant-caps=small-caps' }], toDOM: () => ['span', { class: 'smallcaps' }, 0] },
     strike: { parseDOM: [{ tag: 's' }, { tag: 'del' }, { tag: 'strike' }, { style: 'text-decoration=line-through' }], toDOM: () => ['s', 0] },
     code: { parseDOM: [{ tag: 'code' }], toDOM: () => ['code', 0] },
+    /** MD-024: a comment of the note, faint in editing mode, hidden in reading mode. */
+    mdComment: { parseDOM: [{ tag: 'span.md-comment' }], toDOM: () => ['span', { class: 'md-comment' }, 0] },
+    /** MD-023: raw inline HTML, shown as written. */
+    rawHtml: { parseDOM: [{ tag: 'span.raw-html' }], toDOM: () => ['span', { class: 'raw-html' }, 0] },
     size: {
       attrs: { pt: {} },
       parseDOM: [{ tag: 'span[data-size]', getAttrs: (d: HTMLElement) => ({ pt: Number(d.dataset.size) }) }],

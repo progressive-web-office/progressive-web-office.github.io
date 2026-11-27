@@ -11,6 +11,7 @@ description: File formats that Progressive Web Office can open and save.
 | Presentations | `.odp`, `.pptx` | `.odp`, `.pptx` |
 | [Templates](../guide/templates#template-files) | `.ott`, `.dotx`, `.ots`, `.xltx`, `.otp`, `.potx` (opened as new documents) | the same |
 | PDF | `.pdf` | `.pdf` with filled form fields and signatures, or a flattened copy |
+| [Canvases](../guide/canvas) | `.canvas` (JSON Canvas 1.0) | `.canvas` |
 
 ## Open formats first
 

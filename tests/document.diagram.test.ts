@@ -33,7 +33,7 @@ describe('DIAG-004 Markdown diagrams', () => {
     expect(readMarkdown(md).blocks).toEqual([
       { type: 'paragraph', style: 'normal', runs: [{ text: 'Before' }] },
       { type: 'paragraph', style: 'normal', runs: [{ diagram: SOURCE, lang: 'mermaid' }] },
-      { type: 'paragraph', style: 'code', runs: [{ text: 'x = 1' }] },
+      { type: 'paragraph', style: 'code', codeInfo: 'js', runs: [{ text: 'x = 1' }] },
     ]);
   });
 

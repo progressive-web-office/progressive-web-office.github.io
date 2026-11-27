@@ -3,6 +3,7 @@
  * `Templates` folder (or `_templates`, `Modèles`), offered in the template
  * gallery, and where "Save as template" can put new ones.
  */
+import { DEFAULT_DAILY, fillTemplate } from './daily';
 import { basename, readText, walk, type StorageProvider } from '../fs';
 import { OPENABLE } from './panel';
 
@@ -25,6 +26,11 @@ export async function folderTemplates(provider: StorageProvider): Promise<Folder
   const out: FolderTemplate[] = [];
   for await (const e of walk(provider, dir)) if (OPENABLE.test(e.path)) out.push({ name: basename(e.path).replace(/\.[^.]+$/, ''), path: e.path });
   return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** FOLDER-030: the fields of a template of the folder filled, as for daily notes (`{{date}}` as `YYYY-MM-DD`). */
+export function fillFolderTemplate(text: string, title: string, date: Date, lang?: string): string {
+  return fillTemplate(text, date, title, { ...DEFAULT_DAILY, format: 'YYYY-MM-DD' }, lang);
 }
 
 export const SNIPPET_DIRS = /^(_?snippets|extraits)$/i;
