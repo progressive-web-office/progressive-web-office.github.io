@@ -10,6 +10,15 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
 
 ### Added
 
+- **Math cells — computer algebra** (CAS-001..CAS-006): a cell whose
+  expression is written in a math field and computed by SymPy, its result
+  shown as an equation. Operations wrap the expression (simplify, expand,
+  factor, solve, differentiate, integrate, limit, series, numerical value);
+  definitions with `:=` are shared between math cells, run in the order of
+  their dependencies; the code sent to SymPy is shown on request. Saved as
+  `math {run sympy}` fences in Markdown, as equations in Word, OpenDocument
+  and LaTeX. A *Computer algebra* example shows every operation.
+
 - **Pseudonymisation keeps the format** (PSEUDO-043, PSEUDO-024): the format
   of the outputs is asked for each kind of file — the same format (default),
   plain text, or another format (DOCX ↔ ODT, Markdown; XLSX ↔ ODS, CSV;

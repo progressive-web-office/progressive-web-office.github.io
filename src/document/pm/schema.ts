@@ -335,14 +335,14 @@ export const schema = new Schema({
       inline: true,
       group: 'inline',
       atom: true,
-      attrs: { cell: { default: '' }, lang: { default: 'python' }, output: { default: null }, hidden: { default: false }, header: { default: null } },
+      attrs: { cell: { default: '' }, lang: { default: 'python' }, output: { default: null }, hidden: { default: false }, header: { default: null }, engine: { default: null } },
       parseDOM: [
         {
           tag: 'span.code-cell[data-cell]',
-          getAttrs: (d: HTMLElement) => ({ cell: d.dataset.cell ?? '', lang: d.dataset.lang ?? 'python', output: d.dataset.output ? (JSON.parse(d.dataset.output) as CellOutput) : null, hidden: d.dataset.hidden === 'true' }),
+          getAttrs: (d: HTMLElement) => ({ cell: d.dataset.cell ?? '', lang: d.dataset.lang ?? 'python', output: d.dataset.output ? (JSON.parse(d.dataset.output) as CellOutput) : null, hidden: d.dataset.hidden === 'true', engine: d.dataset.engine ?? null }),
         },
       ],
-      toDOM: (n) => ['span', { class: 'code-cell', 'data-lang': n.attrs.lang, 'data-cell': n.attrs.cell, ...(n.attrs.header !== null ? { 'data-header': n.attrs.header } : {}), ...(n.attrs.output ? { 'data-output': json(n.attrs.output) } : {}), ...(n.attrs.hidden ? { 'data-hidden': 'true' } : {}) }, n.attrs.cell],
+      toDOM: (n) => ['span', { class: 'code-cell', 'data-lang': n.attrs.lang, 'data-cell': n.attrs.cell, ...(n.attrs.header !== null ? { 'data-header': n.attrs.header } : {}), ...(n.attrs.output ? { 'data-output': json(n.attrs.output) } : {}), ...(n.attrs.hidden ? { 'data-hidden': 'true' } : {}), ...(n.attrs.engine ? { 'data-engine': n.attrs.engine } : {}) }, n.attrs.cell],
     },
   },
   // The order is the nesting order: links outermost.

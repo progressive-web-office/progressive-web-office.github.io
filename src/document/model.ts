@@ -125,6 +125,8 @@ export interface CodeCellRun {
   hidden?: boolean;
   /** DOC-038: the KaimonSlate cell header after `#%% ` (kind, id and tags), kept as written. */
   header?: string;
+  /** CAS-001: the engine of a math cell. */
+  engine?: import('./code-langs').CasEngine;
 }
 
 /** A footnote, numbered automatically where it is referenced (DOC-022). */

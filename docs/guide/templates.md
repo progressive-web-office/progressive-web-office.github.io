@@ -80,6 +80,12 @@ oscillations, a Bode plot, a histogram of repeated measurements, a field map
 and a differential equation solved symbolically. The output and figures are
 already there when it opens; **⏩** runs every cell again in the browser.
 
+**Computer algebra** is made of [math cells](./code.md#math-cells-computer-algebra)
+computed by SymPy: exact fractions, simplify, expand, factor, solve an
+equation, define a function and differentiate and integrate it, a limit, a
+series, a sum, the inverse of a matrix and a numerical value. Their results
+are there when it opens; **⏩** computes them again.
+
 **Interactive widgets** shows [widgets](./code.md#widgets) in cells: a
 slider written in Python with anywidget, made reactive with `pwo.ui`, drives
 a plot that is drawn again when the slider moves; a button written in a

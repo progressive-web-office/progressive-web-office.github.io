@@ -22,7 +22,7 @@ export function decorateCells(root: HTMLElement): void {
       h(
         'span',
         { class: 'code-cell-bar', contenteditable: 'false' },
-        h('span', { class: 'code-cell-lang', ...(isRunLang(lang) ? {} : { title: t('code.showOnly') }) }, LANG_LABEL[lang] ?? lang, cell.classList.contains('code-hidden') ? h('span', { class: 'code-cell-hidden-note' }, ` · ${t('code.hiddenNote')}`) : ''),
+        h('span', { class: 'code-cell-lang', ...(isRunLang(lang) ? {} : { title: t('code.showOnly') }) }, lang === 'math' ? `${LANG_LABEL.math} · SymPy` : (LANG_LABEL[lang] ?? lang), cell.classList.contains('code-hidden') ? h('span', { class: 'code-cell-hidden-note' }, ` · ${t('code.hiddenNote')}`) : ''),
         action('toggle-code', cell.classList.contains('code-hidden') ? '👁' : '🙈', t(cell.classList.contains('code-hidden') ? 'code.showCode' : 'code.hideCode')),
         // DOC-038: a Julia cell of a KaimonSlate notebook shows its header (id, tags); it runs in KaimonSlate.
         ...(lang === 'julia' && cell.dataset.header !== undefined
@@ -42,7 +42,8 @@ export function decorateCells(root: HTMLElement): void {
     );
     // The code in colours, once its grammar is loaded.
     const source = cell.querySelector<HTMLElement>(':scope > .code-cell-source');
-    if (source?.textContent) void import('./highlight').then(({ highlightInto }) => highlightInto(source, source.textContent ?? '', lang));
+    // CAS-001: the equation of a math cell is drawn by MathLive, not coloured.
+    if (source?.textContent && lang !== 'math') void import('./highlight').then(({ highlightInto }) => highlightInto(source, source.textContent ?? '', lang));
   }
 }
 
@@ -100,7 +101,7 @@ export async function editCell(host: HTMLElement, initial?: CellValue, complete?
       { 'aria-label': t('code.language') },
       ...(initial?.fixedLang
         ? [option(initial.lang)]
-        : [h('optgroup', { label: t('code.groupRun') }, ...RUN_LANGS.map(option)), h('optgroup', { label: t('code.groupShow') }, ...[...SHOW_LANGS].sort(byName).map(option))]),
+        : [h('optgroup', { label: t('code.groupRun') }, ...RUN_LANGS.filter((l) => l !== 'math').map(option)), h('optgroup', { label: t('code.groupShow') }, ...[...SHOW_LANGS].sort(byName).map(option))]),
     );
     lang.value = initial?.lang ?? 'python';
     const hint = h('p', { class: 'hint' });

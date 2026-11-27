@@ -447,11 +447,13 @@ class FootnoteView extends AtomView {
 class CodeCellView extends AtomView {
   protected override render(): void {
     const a = this.node.attrs;
-    const run: CodeCellRun = { cell: a.cell as string, lang: a.lang as CodeCellRun['lang'], ...(a.output ? { output: a.output as CodeCellRun['output'] } : {}), ...(a.hidden ? { hidden: true } : {}), ...(a.header !== null ? { header: a.header as string } : {}) };
+    const run: CodeCellRun = { cell: a.cell as string, lang: a.lang as CodeCellRun['lang'], ...(a.output ? { output: a.output as CodeCellRun['output'] } : {}), ...(a.hidden ? { hidden: true } : {}), ...(a.header !== null ? { header: a.header as string } : {}), ...(a.engine ? { engine: a.engine as 'sympy' } : {}) };
     const el = codeCellElement(run, document, (key) => this.hooks.resolve(key));
     (el as HTMLElement & { [CELL_HANDLE]?: CellHandle })[CELL_HANDLE] = { element: el, getPos: this.getPos, refresh: () => this.render() };
     this.dom.replaceChildren(el);
     void import('../../code/ui').then(({ decorateCells }) => decorateCells(this.dom));
+    // CAS-001: a math cell shows its equation and its result as equations.
+    if (run.lang === 'math') void import('../../math/ui').then(({ renderMath }) => renderMath(this.dom));
     if (run.output?.widgets?.length) this.hooks.mountWidgets?.(el);
     this.dom.onclick = (e) => {
       const target = e.target as HTMLElement;

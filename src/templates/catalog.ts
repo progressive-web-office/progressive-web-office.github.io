@@ -11,6 +11,7 @@ import { applyCellStyle } from '../sheet/ops';
 import { contentSlide, DEFAULT_SIZE, textShape, titleSlide, type Presentation, type Slide } from '../slides/model';
 import { DOCUMENT_TEXTS, LABELS, type DocumentTexts, type TemplateLang } from './content';
 import { labMarkdown } from './lab';
+import { casMarkdown } from './cas';
 import { widgetsMarkdown } from './widgets';
 import { aeronauticsMarkdown, automationMarkdown, automotiveMarkdown, instrumentsMarkdown } from './instruments';
 import { languagesMarkdown } from './languages';
@@ -55,6 +56,13 @@ function documentFrom(text: keyof DocumentTexts, after?: (doc: RichDocument, lan
 /** The lab report example: Python cells with their figures already drawn. */
 function lab(lang: TemplateLang): Built {
   const doc = readMarkdown(labMarkdown(lang));
+  if (doc.extras) delete doc.extras.frontMatter;
+  return { kind: 'document', doc };
+}
+
+/** CAS-006: the computer algebra example: math cells and their results. */
+function cas(lang: TemplateLang): Built {
+  const doc = readMarkdown(casMarkdown(lang));
   if (doc.extras) delete doc.extras.frontMatter;
   return { kind: 'document', doc };
 }
@@ -393,6 +401,7 @@ export const TEMPLATES: Template[] = [
   { id: 'layered-poster', kind: 'picture', example: true, icon: '🗂', name: 'tpl.layeredPoster', description: 'tpl.layeredPosterDesc', build: (lang) => ({ kind: 'picture', ext: 'ora', bytes: () => drawings.layeredPoster(lang) }) },
   { id: 'tour', kind: 'document', example: true, icon: '🧭', name: 'tpl.tour', description: 'tpl.tourDesc', build: documentFrom('tour') },
   { id: 'lab', kind: 'document', example: true, icon: '🧪', name: 'tpl.lab', description: 'tpl.labDesc', build: lab },
+  { id: 'cas', kind: 'document', example: true, icon: '∑', name: 'tpl.cas', description: 'tpl.casDesc', build: cas },
   { id: 'widgets', kind: 'document', example: true, icon: '🎛️', name: 'tpl.widgets', description: 'tpl.widgetsDesc', build: widgets },
   { id: 'instruments', kind: 'document', example: true, icon: '🏭', name: 'tpl.instruments', description: 'tpl.instrumentsDesc', build: instrumentsPage(instrumentsMarkdown) },
   { id: 'instruments-automation', kind: 'document', example: true, icon: '🤖', name: 'tpl.automation', description: 'tpl.automationDesc', build: instrumentsPage(automationMarkdown) },

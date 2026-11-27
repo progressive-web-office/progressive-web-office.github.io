@@ -618,7 +618,7 @@ export function readMarkdown(source: string, opts: MarkdownReadOptions = {}): Ri
         const lang = info?.flags.includes('run') || info?.flags.includes('cell') ? CELL_LANGS[info.lang] : undefined;
         if (lang) {
           const p = newParagraph();
-          p.runs = [{ cell: content, lang, ...(info!.flags.includes('hide') ? { hidden: true } : {}) }];
+          p.runs = [{ cell: content, lang, ...(info!.flags.includes('hide') ? { hidden: true } : {}), ...(lang === 'math' ? { engine: 'sympy' as const } : {}) }];
           push(p);
           break;
         }

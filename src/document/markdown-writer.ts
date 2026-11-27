@@ -251,9 +251,11 @@ class MarkdownWriter {
    */
   private cell(run: CodeCellRun): string {
     const kind = isRunLang(run.lang) || run.lang === 'julia' ? 'run' : 'cell';
-    const parts = [fenced(run.cell, `${run.lang} {${kind}${run.hidden ? ' hide' : ''}}`)];
+    // CAS-005: a math cell names its engine; its result is LaTeX, shown as math where `math` fences are.
+    const math = run.lang === 'math';
+    const parts = [fenced(run.cell, `${run.lang} {${kind}${math ? ` ${run.engine ?? 'sympy'}` : ''}${run.hidden ? ' hide' : ''}}`)];
     const text = run.output?.text.replace(/\n$/, '');
-    if (text) parts.push(fenced(text, `text {output${run.output?.error ? ' error' : ''}}`));
+    if (text) parts.push(fenced(text, `${math && !run.output?.error ? 'math' : 'text'} {output${run.output?.error ? ' error' : ''}}`));
     const images = (run.output?.images ?? []).filter((key) => this.doc.resources.has(key));
     if (images.length) parts.push(images.map((key) => `![Output](${this.imageUrl(key).replace(/[()\s]/g, encodeURIComponent)} "output")`).join(' '));
     // CODE-016: widgets are kept as their picture.

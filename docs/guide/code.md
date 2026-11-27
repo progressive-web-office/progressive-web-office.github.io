@@ -11,6 +11,8 @@ stay next to the explanation. Cells are **reactive** (a cell knows the cells
 it depends on) and can show **interactive widgets** (knobs, sliders,
 gauges…). The examples *Lab report with Python plots*, *Interactive widgets*
 and *Instrument panel* (Templates and examples) show them at work.
+[Math cells](#math-cells-computer-algebra) compute an equation written in a
+math field with SymPy.
 
 ## Inserting and running
 
@@ -403,6 +405,61 @@ cells) and returned names computed again. A `.py` file that is no marimo
 notebook opens as Python source code, which runs with **▶ Run**; when it
 imports a package the offline Python lacks, a button downloads it from the
 package index (pure-Python packages) and runs the file again.
+
+## Math cells (computer algebra)
+
+A **math cell** holds an expression written in a **math field** (the editor
+of equations, with its virtual keyboard on touch screens), computed by
+**SymPy** — the computer algebra library of Python — and its result is shown
+as an equation under it. The example *Computer algebra* (Templates and
+examples) shows every operation.
+
+1. Click **Insert math cell** (∑= in the toolbar, or **Math cell to compute…**
+   in the context menu), or type ```` ```math {run} ```` at the start of a
+   line, then <kbd>Enter</kbd>.
+2. Type the expression in the math field (or its LaTeX). To apply an
+   **operation**, choose it — *Simplify*, *Expand*, *Factor*, *Solve for a
+   variable*, *Differentiate*, *Integrate* (with bounds or not), *Limit*,
+   *Series expansion*, *Numerical value* — fill in the variable and the
+   bounds it asks for, and click **Apply**: the expression is wrapped in the
+   notation of the operation (`\operatorname{factor}(…)`, `\int_0^1 … \,dx`,
+   `\frac{d}{dx}(…)`, `\lim_{x\to 0}`…), which you can also type yourself.
+   *Code sent to SymPy* shows what will run.
+3. Click **Insert**, then **▶** (or **⏩** for every cell).
+
+What a math field writes is understood: numbers (exact: `\frac{1}{3}` stays
+a fraction; `3.5` is a decimal), letters and Greek letters, with subscripts
+(`x_1`), `\pi`, `e`, `i` and `\infty`, the four operations and implicit
+products (`2x`), powers, roots, factorials, absolute values, the usual
+functions (`\sin`, `\ln`, `\exp`…), matrices (`pmatrix`, `bmatrix`; a
+`vmatrix` is a determinant), equations and inequalities, integrals,
+derivatives (`\frac{d}{dx}`, `f'(x)`), limits (`0^+` for one side), sums and
+products.
+
+**Definitions** use `:=`: `a := 3`, `f(x) := x^2 e^{-x}`. They are known to
+the next cells — `f(2)`, `\frac{d}{dx}(f(x))` — which run after the cell
+defining what they use, as code cells do. The names of math cells are kept
+apart from those of Python cells.
+
+SymPy runs in the sandbox of Python cells: the first run downloads Python and
+SymPy (about 10 MB), then it works offline. An expression that cannot be read
+says why, without running anything; an error of SymPy shows its message.
+
+````md
+```math {run sympy}
+\int_0^{\infty}x^2e^{-x}\,\mathrm{d}x
+```
+
+```math {output}
+2
+```
+````
+
+In Markdown, a math cell is a ```` ```math {run sympy} ```` block holding its
+LaTeX, followed by a ```` ```math {output} ```` block holding the LaTeX of its
+result: other tools that draw `math` blocks show both as equations. In Word,
+OpenDocument and LaTeX, it is written as its equation followed by the
+equation of its result.
 
 ## KaimonSlate notebooks (Julia)
 

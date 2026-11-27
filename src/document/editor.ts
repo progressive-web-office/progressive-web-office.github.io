@@ -1224,6 +1224,7 @@ export class DocumentEditor implements EditorView {
       entries.push(
         { title: t('group.insert') },
         { label: t('ctx.codeCell'), icon: '{ }', run: () => void this.editCell() },
+        { label: t('ctx.mathCell'), icon: '∑=', run: () => void this.editMathCell() },
         ...(isInTable(state) ? [] : [{ title: t('ctx.table') }, tableSizePicker((rows, cols) => t('ctx.tableSize', { rows, cols }), (rows, cols) => cmd(insertTable(rows, cols))())]),
         'separator',
         { label: t('common.insertImage'), icon: '🖼', run: () => void this.pickImage() },
@@ -1304,6 +1305,8 @@ export class DocumentEditor implements EditorView {
   /** Insert a new cell on its own line (in `lang`), or edit an existing one (CODE-001). */
   private async editCell(pos?: number, node?: PmNode, lang?: CodeLang): Promise<void> {
     if (this.readOnly) return;
+    // CAS-001: a math cell is edited in a math field.
+    if ((node?.attrs.lang ?? lang) === 'math') return this.editMathCell(pos, node);
     const { editCell } = await import('../code/ui');
     const current = node?.attrs as { cell: string; lang: CodeLang; output: unknown; header: string | null } | undefined;
     // CODE-011: completion loads jedi the first time, longer than a keystroke waits: it starts now.
@@ -1320,6 +1323,50 @@ export class DocumentEditor implements EditorView {
     this.refocus();
     // CODE-014: the cells using what it defined (before or now) are out of date.
     if (!unchanged && current && pos !== undefined && isRunLang(current.lang)) void this.markDependents(pos, { lang: current.lang, code: current.cell });
+  }
+
+  /** CAS-001, CAS-002: insert a math cell on its own line, or edit one. */
+  private async editMathCell(pos?: number, node?: PmNode): Promise<void> {
+    if (this.readOnly) return;
+    const { editMathCell } = await import('../cas/ui');
+    const current = node?.attrs as { cell: string; output: unknown } | undefined;
+    const value = await editMathCell(this.element, current ? { latex: current.cell } : undefined, await this.mathFunctions());
+    if (!value) return;
+    const unchanged = !!current && current.cell === value.latex;
+    const attrs = { cell: value.latex, lang: 'math', engine: 'sympy', output: unchanged ? current.output : null };
+    if (pos !== undefined) this.view.dispatch(this.view.state.tr.setNodeMarkup(pos, undefined, { ...node?.attrs, ...attrs }));
+    else this.command(insertOnOwnLine(schema.nodes.code_cell!.create(attrs)));
+    this.refocus();
+    if (!unchanged && current && pos !== undefined) void this.markDependents(pos, { lang: 'math', code: current.cell });
+  }
+
+  /** CAS-004: the functions the math cells of the document define (`f(x) := …`). */
+  private async mathFunctions(): Promise<Set<string>> {
+    const { parseLatex, mathDeps } = await import('../cas/latex');
+    const out = new Set<string>();
+    this.view.state.doc.descendants((n) => {
+      if (n.type !== schema.nodes.code_cell || n.attrs.lang !== 'math') return;
+      try {
+        for (const f of mathDeps(parseLatex(n.attrs.cell as string, { functions: out })).functions) out.add(f);
+      } catch {
+        /* a cell that cannot be read defines nothing */
+      }
+    });
+    return out;
+  }
+
+  /** CAS-001, CAS-003: a math cell run by SymPy in the sandbox; its result as LaTeX. */
+  private async runMathCell(latex: string, onStatus: (status: import('../code/runner').RunStatus) => void): Promise<{ text: string; error?: boolean; images: Uint8Array[]; widgets?: string[] }> {
+    const cas = await import('../cas/sympy');
+    let code: string;
+    try {
+      code = `${cas.SYMPY_PRELUDE}\n${cas.sympyCell(latex, { functions: await this.mathFunctions() })}`;
+    } catch (e) {
+      return { text: t('cas.syntax', { message: (e as Error).message }), error: true, images: [] };
+    }
+    const r = await this.runner!.run('python', code, onStatus);
+    if (r.error) return { text: cas.engineError(r.text), error: true, images: [] };
+    return { text: cas.readSympyOutput(r.text).latex.join('\n'), images: [] };
   }
 
   // --- reactive cells (CODE-014) -----------------------------------------------
@@ -1342,6 +1389,16 @@ export class DocumentEditor implements EditorView {
     const key = `${lang}\u0000${code}`;
     let found = this.analyses.get(key);
     if (!found) {
+      // CAS-004: what a math cell defines and uses, from its expression (functions of the other cells known).
+      if (lang === 'math') {
+        const { parseLatex, mathDeps } = await import('../cas/latex');
+        try {
+          const d = mathDeps(parseLatex(code, { functions: await this.mathFunctions() }));
+          return { defs: d.defs, refs: d.refs };
+        } catch {
+          return { defs: [], refs: [] };
+        }
+      }
       if (lang === 'javascript') found = import('../code/ts-language').then(({ analyzeScript }) => analyzeScript(code)).catch(() => null);
       // CODE-018: Lua, SQL, R and C/C++ cells share no names with the others: they run in document order.
       else if (lang !== 'python') return { defs: [], refs: [] };
@@ -1552,10 +1609,11 @@ export class DocumentEditor implements EditorView {
       const source = code ?? (node.attrs.cell as string);
       // NOTE-002: a SQL cell of a note of the folder queries its notes.
       const notes = node.attrs.lang === 'sql' && usesNoteTables(source) ? await this.ctx.noteTables?.() : undefined;
-      const result = await runner.run(node.attrs.lang as 'python' | 'javascript', source, (status) => {
+      const onStatus = (status: import('../code/runner').RunStatus): void => {
         const text = status === 'loading-python' ? t('code.loadingPython') : status === 'running' ? t('code.running') : `${t('code.packages')} ${status.slice('packages:'.length)}`;
         ui.setCellStatus(cell, text);
-      }, undefined, notes);
+      };
+      const result = node.attrs.lang === 'math' ? await this.runMathCell(source, onStatus) : await runner.run(node.attrs.lang as 'python' | 'javascript', source, onStatus, undefined, notes);
       const images = result.images.map((png) => addResource(this.doc, png, 'image/png'));
       const widgets = (result.widgets ?? []).map((id) => ({ id }));
       const output = { text: result.text, ...(result.error ? { error: true } : {}), ...(images.length ? { images } : {}), ...(widgets.length ? { widgets } : {}) };
@@ -2766,6 +2824,7 @@ export class DocumentEditor implements EditorView {
         act(t('doc.insertTable'), '▦', () => this.command(insertTable()), t('doc.insertTableTitle')),
         act(t('doc.insertEquation'), '∑', () => void this.editMath(), t('doc.insertEquationTitle')),
         act(t('doc.insertCode'), '{ }', () => void this.editCell(), t('doc.insertCodeTitle')),
+        act(t('doc.insertMathCell'), '∑=', () => void this.editMathCell(), t('doc.insertMathCellTitle')),
         act(t('doc.insertDiagram'), '⧉', () => void this.editDiagram(), t('doc.insertDiagramTitle')),
         act(t('note.button'), '¹', () => void this.editNote(), `${t('note.insert')} (Ctrl+Alt+F)`),
         act(t('field.insert'), '⌗', () => this.fieldMenu(), t('field.insertTitle')),
