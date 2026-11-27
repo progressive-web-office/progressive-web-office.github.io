@@ -469,12 +469,20 @@ export function codeCellElement(run: CodeCellRun, doc: Document, resolveImage: (
   }
   const source = doc.createElement('span');
   source.className = 'code-cell-source';
-  source.textContent = run.cell;
+  // CAS-001: a math cell is an equation, its result too (one per line).
+  const math = run.lang === 'math';
+  if (math) {
+    if (run.engine) cell.dataset.engine = run.engine;
+    source.append(mathElement(run.cell, true, doc));
+  } else source.textContent = run.cell;
   cell.append(source);
   if (run.output) {
     const output = doc.createElement('span');
     output.className = run.output.error ? 'code-cell-output error' : 'code-cell-output';
-    output.textContent = run.output.text;
+    if (math && !run.output.error) {
+      output.classList.add('math-result');
+      for (const line of run.output.text.split('\n').filter((l) => l.trim())) output.append(mathElement(line, true, doc));
+    } else output.textContent = run.output.text;
     cell.append(output);
     const figures = doc.createElement('span');
     figures.className = 'code-cell-figures';

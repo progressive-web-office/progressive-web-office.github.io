@@ -811,6 +811,14 @@ button.doc-source { background: none; border: 0; padding: 0; font: inherit; font
 .code-cell-output:empty { display: none; }
 .code-cell-output.error { color: #b3261e; background: #fdf3f2; }
 .code-cell-output.pending { color: #5a6577; font-style: italic; }
+/* CAS-001: a math cell shows equations, its source and its result. */
+.code-cell[data-lang='math'] > .code-cell-source { white-space: normal; text-align: center; }
+.code-cell-output.math-result { white-space: normal; text-align: center; }
+.code-cell-output.math-result > .math { display: block; }
+.cas-ops { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin: 8px 0; }
+.cas-arg { display: inline-flex; gap: 4px; align-items: center; }
+.cas-code { white-space: pre-wrap; font-size: 0.8rem; max-height: 12em; overflow: auto; background: var(--code-bg, #f5f7fa); padding: 6px 8px; border-radius: 4px; }
+.cas-code.error { color: #b3261e; }
 .code-cell-figures { display: block; padding: 6px 10px; background: #fff; text-align: center; }
 .code-cell-figures img { max-width: 100%; height: auto; }
 .print-document .code-cell { display: block; margin: 6pt 0; border: 1px solid #bbb; break-inside: avoid; font-family: 'Liberation Mono', Consolas, monospace; font-size: 9.5pt; }

@@ -229,7 +229,24 @@ keyboard. Equations are stored as LaTeX in the document model.
 | MATH-004 | M | 0.0.7 | When a document is saved as ODT, the system shall embed each equation as a MathML formula object (with the LaTeX source as annotation), and read MathML formula objects back. |
 | MATH-005 | M | 0.0.7 | When a document is saved as DOCX, the system shall write equations as Office Math (OMML) for the supported subset (fractions, scripts, roots, sums/integrals, matrices, Greek letters, operators) and read OMML back into LaTeX. |
 | MATH-006 | C | — | Equation support in presentations and spreadsheet cell comments. |
-| MATH-007 | W | — | Computer-algebra features (solving, plotting). |
+| MATH-007 | W | — | Plotting from equations (computer algebra: see CAS). |
+
+### Computer algebra (CAS)
+
+A math cell is a code cell whose source is an equation written in a math
+field: its LaTeX is translated to the language of a computer algebra engine
+(SymPy, run by the Python of the code cells), and the result shown as an
+equation.
+
+| ID | Pri | Phase | Requirement |
+|----|-----|-------|-------------|
+| CAS-001 | M | 0.2.0 | The system shall let the user insert a math cell in a text document, edited in a MathLive math field, whose expression is evaluated by a computer algebra engine — SymPy (Pyodide) — and show the result as a rendered equation under it, kept in the document like the output of a code cell (CODE-005). |
+| CAS-002 | M | 0.2.0 | The system shall translate the expression (numbers, symbols and Greek letters, operations, powers, roots, fractions, functions, factorials, absolute values, matrices, equations, integrals, derivatives, limits, sums and products) to the language of the engine, and offer, from the dialog of the cell, simplify, expand, factor, solve for a variable, differentiate, integrate (indefinite or definite), limit, series and numerical value, which wrap the expression in the notation of the operation; the text sent to the engine shall be shown on request. |
+| CAS-003 | M | 0.2.0 | The system shall run the engine in the sandbox of code cells (CODE-003), without network access, after the confirmation of CODE-004, with a Stop button that ends the computation. |
+| CAS-004 | S | 0.2.0 | Math cells shall share their definitions (`a := 3`, `f(x) := x^2`) within a document, apart from the names of Python cells, and run in the order of their dependencies (CODE-014). |
+| CAS-005 | M | 0.2.0 | When a document is saved as Markdown or MDZ, a math cell shall be written as a ```` ```math {run sympy} ```` fence holding its LaTeX, followed by a ```` ```math {output} ```` fence holding the LaTeX of its result, and read back; in DOCX, ODT and LaTeX, as the equation followed by the equation of its result. |
+| CAS-006 | S | 0.2.0 | The examples shall include a *Computer algebra* example showing each operation, its results computed in advance. |
+| CAS-007 | S | — | Where the user chooses Giac (giac-wasm, served by the application, downloaded on first use after the user agrees, then kept for offline use, its licences shown with the other notices), the system shall evaluate math cells with it, the engine being chosen for each cell, a new cell taking that of the cell before it, Giac by default. |
 
 ## 4d. Diagrams (DIAG)
 

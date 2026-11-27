@@ -7,6 +7,8 @@ const APP_URL = process.env.DOCS_URL ? process.env.DOCS_URL.replace(/\/docs\/?$/
 export default defineConfig({
   // The appearance in three positions (system, light, dark) in place of the default two.
   vite: {
+    // The local search index grows with the guide (design note Q22): above the default 500 kB.
+    build: { chunkSizeWarningLimit: 1000 },
     resolve: {
       alias: [{ find: /^.*\/VPSwitchAppearance\.vue$/, replacement: fileURLToPath(new URL('./theme/AppearanceSwitch.vue', import.meta.url)) }],
     },

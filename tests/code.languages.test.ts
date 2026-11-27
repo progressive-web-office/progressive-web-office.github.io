@@ -23,7 +23,7 @@ async function classes(lang: CodeLang, code: string): Promise<Set<string>> {
 
 describe('CODE-020 languages of code cells', () => {
   it('knows the languages run here, and those shown only, with their names and usual aliases', () => {
-    expect(RUN_LANGS).toEqual(['python', 'javascript', 'sql', 'r', 'lua', 'cpp']);
+    expect(RUN_LANGS).toEqual(['python', 'javascript', 'sql', 'r', 'lua', 'cpp', 'math']);
     expect(SHOW_LANGS).toEqual(expect.arrayContaining(['bash', 'powershell', 'julia', 'java', 'csharp', 'vb', 'rust', 'fortran', 'go', 'pascal', 'php', 'asm', 'ada', 'swift', 'objc', 'cobol']));
     for (const lang of ALL_LANGS) expect(LANG_LABEL[lang], lang).toBeTruthy();
     expect(new Set(ALL_LANGS).size).toBe(ALL_LANGS.length);

@@ -9,6 +9,7 @@ import { answerCodeQuestions, openApp, usePyodidePackages, pickTemplate } from '
 const EXAMPLES: [name: string, cells: number][] = [
   ['A tour of the word processor', 1],
   ['Lab report with Python plots', 0],
+  ['Computer algebra', 13],
   ['Interactive widgets', 0],
   ['Instrument panel', 4],
   ['Automation panel', 4],

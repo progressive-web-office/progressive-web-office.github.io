@@ -2,14 +2,25 @@
  * Notes written to other formats (Word, OpenDocument, LaTeX, PDF): the
  * comments of a note (MD-024) are left out, and tasks (MD-020) are shown with
  * their check box as a character, since these formats have no task lists.
+ * A math cell (CAS-005) becomes its equation followed by that of its result.
  */
-import { taskDone, type Block, type Paragraph, type RichDocument, type Run } from './model';
+import { taskDone, type Block, type CodeCellRun, type Paragraph, type RichDocument, type Run } from './model';
 
 const isComment = (r: Run): boolean => 'text' in r && !!r.mdComment;
+const isMathCell = (r: Run): r is CodeCellRun => 'cell' in r && r.lang === 'math';
+
+/** CAS-005: the equation of a math cell (unless hidden), then the equations of its result, or its error. */
+function mathCell(r: CodeCellRun): Run[] {
+  const out: Run[] = r.hidden ? [] : [{ math: r.cell, display: true }];
+  if (r.output?.error) out.push({ text: r.output.text });
+  else for (const line of (r.output?.text ?? '').split('\n').filter((l) => l.trim())) out.push({ math: line, display: true });
+  return out;
+}
 
 function paragraph(p: Paragraph): Paragraph | null {
   if (p.raw === 'comment') return null;
   let runs = p.runs.some(isComment) ? p.runs.filter((r) => !isComment(r)) : p.runs;
+  if (runs.some(isMathCell)) runs = runs.flatMap((r) => (isMathCell(r) ? mathCell(r) : [r]));
   if (p.task !== undefined) runs = [{ text: taskDone(p.task) ? '☑ ' : '☐ ' }, ...runs];
   if (runs === p.runs && !p.raw) return p;
   const { raw: _raw, ...rest } = p;
@@ -32,6 +43,6 @@ function blocks(list: Block[]): Block[] {
 
 /** The document as written to a format other than Markdown. */
 export function forExport(doc: RichDocument): RichDocument {
-  const touched = JSON.stringify(doc.blocks).match(/"(?:mdComment|task|raw)":/);
+  const touched = JSON.stringify(doc.blocks).match(/"(?:mdComment|task|raw)":|"lang":"math"/);
   return touched ? { ...doc, blocks: blocks(doc.blocks) } : doc;
 }

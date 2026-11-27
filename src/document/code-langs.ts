@@ -6,7 +6,13 @@
  */
 
 /** Run in the browser (CODE-001, CODE-018). */
-export const RUN_LANGS = ['python', 'javascript', 'sql', 'r', 'lua', 'cpp'] as const;
+export const RUN_LANGS = ['python', 'javascript', 'sql', 'r', 'lua', 'cpp', 'math'] as const;
+
+/** CAS-001: a math cell, its source an equation of a math field, run by a computer algebra engine. */
+export const MATH_LANG = 'math';
+
+/** CAS-001: the engines of math cells. */
+export type CasEngine = 'sympy';
 
 /** Shown and edited only: the most used languages (TIOBE index), shells, and the usual formats. */
 export const SHOW_LANGS = [
@@ -73,6 +79,7 @@ export const LANG_LABEL: Record<RunLang | ShowLang, string> = {
   r: 'R',
   lua: 'Lua',
   cpp: 'C/C++',
+  math: 'Math',
   bash: 'Bash',
   powershell: 'PowerShell',
   julia: 'Julia',

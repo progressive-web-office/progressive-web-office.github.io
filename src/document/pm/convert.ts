@@ -87,7 +87,7 @@ function runsToInline(runs: Run[]): PmNode[] {
     } else if ('cite' in run) {
       out.push(schema.nodes.cite!.create({ keys: run.cite, locator: run.locator ?? null }));
     } else {
-      out.push(schema.nodes.code_cell!.create({ cell: run.cell, lang: run.lang, output: run.output ?? null, hidden: !!run.hidden, header: run.header ?? null }));
+      out.push(schema.nodes.code_cell!.create({ cell: run.cell, lang: run.lang, output: run.output ?? null, hidden: !!run.hidden, header: run.header ?? null, engine: run.engine ?? null }));
     }
   }
   return out;
@@ -191,7 +191,7 @@ function inlineToRuns(node: PmNode): Run[] {
         runs.push(a.locator ? { cite: [...(a.keys as string[])], locator: a.locator as string } : { cite: [...(a.keys as string[])] });
         break;
       case 'code_cell':
-        runs.push({ cell: a.cell as string, lang: a.lang as 'python', ...(a.output ? { output: a.output as NonNullable<Extract<Run, { cell: string }>['output']> } : {}), ...(a.hidden ? { hidden: true } : {}), ...(a.header !== null && a.header !== undefined ? { header: a.header as string } : {}) });
+        runs.push({ cell: a.cell as string, lang: a.lang as 'python', ...(a.output ? { output: a.output as NonNullable<Extract<Run, { cell: string }>['output']> } : {}), ...(a.hidden ? { hidden: true } : {}), ...(a.header !== null && a.header !== undefined ? { header: a.header as string } : {}), ...(a.engine ? { engine: a.engine as 'sympy' } : {}) });
         break;
     }
   });
