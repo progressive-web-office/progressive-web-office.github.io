@@ -136,7 +136,9 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
   follows any link.
 - **PDF files and documents in review mode open at 100 %** (SET-002): the
   default zoom is the actual size, *fit the width* and *whole page* being
-  choices; a percentage chosen in the toolbar is kept too.
+  choices in the settings. Every file opens at the zoom of the settings: a
+  zoom of the toolbar is for the file open only, and a zoom kept by the
+  toolbar before is forgotten.
 - **Callouts show the icon of their type** (MD-019) before their title, or
   the name of the type when there is none, instead of the `[!TYPE]` marker,
   shown only while the title line is edited.

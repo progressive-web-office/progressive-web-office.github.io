@@ -34,11 +34,12 @@ they open:
 
 - **Pages side by side**: 1, 2, 3, 4 or 6;
 - **Zoom**: actual size (100 %, the default), fit the width or the whole
-  page;
+  page — every file opens at this zoom; a zoom changed in the toolbar is
+  for the file open only;
 - **Page layout**: scrolling, or page by page without scrolling;
-- **Remember the last choice made in the toolbar**: when it is on, a change
-  in the toolbar becomes the default for the next file; turn it off to open
-  every file with the settings above;
+- **Remember the last choice made in the toolbar**: when it is on, the pages
+  side by side and the page layout chosen in the toolbar become the default
+  for the next file; turn it off to open every file with the settings above;
 - **Review mode for every file**: PDF files and text documents open in
   [review mode](./review), until it is left (*Edit*) in any of them — the
   same switch as the *Review mode* button of the documents and PDF files.
