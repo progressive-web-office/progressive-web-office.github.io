@@ -48,3 +48,20 @@ export interface OpenedDocument {
   outputExtension: string;
   write(edits: readonly UnitEdit[]): Promise<Uint8Array>;
 }
+
+/** The texts of the units with the edits made (the plain text of a document). */
+export function editedTexts(units: readonly TextUnit[], edits: readonly UnitEdit[]): string[] {
+  const by = new Map<number, UnitEdit[]>();
+  for (const e of edits) by.set(e.unit, [...(by.get(e.unit) ?? []), e]);
+  return units.map((u, i) => {
+    const mine = (by.get(i) ?? []).sort((a, b) => a.start - b.start);
+    let s = '';
+    let at = 0;
+    for (const e of mine) {
+      if (e.start < at) continue;
+      s += u.text.slice(at, e.start) + e.replacement;
+      at = e.end;
+    }
+    return s + u.text.slice(at);
+  });
+}

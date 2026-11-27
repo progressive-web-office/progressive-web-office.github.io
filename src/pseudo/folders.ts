@@ -36,6 +36,12 @@ export async function folderProblem(input: FolderHandle, output: FolderHandle): 
   return null;
 }
 
+/** PSEUDO-044: an output folder for inputs that are not on the disk: it must be empty (or hold an earlier run). */
+export async function outputProblem(output: FolderHandle): Promise<FolderProblem | null> {
+  for await (const e of output.values()) if (e.name !== MARKER) return 'not-empty';
+  return null;
+}
+
 export interface FolderFile {
   path: string;
   file: FileEntryHandle;

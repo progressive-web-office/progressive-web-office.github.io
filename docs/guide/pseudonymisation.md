@@ -37,8 +37,10 @@ first use, and must be acknowledged.
 
 **🗂 File → 🎭 Pseudonymise…** (or the command palette):
 
-1. Choose **a copy of the open document**, or **a folder, into another
-   folder**. For the open document, the file as stored is used; when the
+1. Choose **a copy of the open document**, **the open folder** (when a
+   folder or a ZIP archive is open), or **a folder, into another folder**.
+   You can also right-click the folder itself, a folder or files in the
+   folder panel and choose **Pseudonymise…**. For the open document, the file as stored is used; when the
    document has unsaved changes, you choose the file, or the document as it
    is now (then the parts the editor does not hold, such as text boxes, are
    left out).
@@ -58,12 +60,18 @@ first use, and must be acknowledged.
    (.kdbx)*, or *Use the table kept in this browser*. Where the browser can
    write files (Chrome, Edge), *Create the table…* asks where to save the
    `.kdbx` file right away.
-4. Set the **options** (see below), then **Pseudonymise**.
+4. Set the **options** (see below) and the **format of the outputs** for
+   each kind of file (see below), then **Pseudonymise**.
 5. Read the **report** and check what it lists. The table is **written again
    in its file** after each run (where the browser can write files, and once
    you allowed it for an opened table); otherwise, **save the table** with
    *Save the table…* — the window warns before closing while it is not
    saved. Keep it apart from the documents; never send it.
+
+For the open folder (or entries of it), the copies are given as one ZIP
+file, or, where the browser can write folders, written to an empty output
+folder outside the open folder. The copies are not put back into
+subfolders: the names of folders often hold the names of people.
 
 For a folder, the output folder must be empty and must be neither the
 folder of the documents nor inside it (nor contain it). The list, mapping
@@ -95,6 +103,26 @@ and names **shared** by several people are replaced alone only in safe
 places, and the report names them. You can add exclusions, labels and
 common words under *Lists*.
 
+## Format of the outputs
+
+Each kind of file among the inputs has its own choice, remembered in this
+browser:
+
+| Kind | Choices |
+|------|---------|
+| PDF | **PDF** (default): the pages with names are drawn as pictures, the names masked by their pseudonym; the other pages are copied as they are. Or **plain text**. |
+| Word, OpenDocument text | **same format** (default), the other one (`.odt` ↔ `.docx`), Markdown, plain text |
+| Markdown | **same format** (default), Word, OpenDocument text, plain text |
+| Excel, OpenDocument spreadsheet | **same format** (default), the other one, CSV (first sheet), plain text |
+| PowerPoint, OpenDocument presentation | **same format** (default), the other one, plain text |
+
+A file is always pseudonymised in its own format first, then converted;
+the converted file is checked again like any other. A conversion may lose
+some layout. In a PDF kept as PDF, the pages drawn as pictures lose their
+selectable text; they are listed *to check visually*, with their picture, so
+that you see the masks. A picture in the PDF (a scan, a photo) is not
+analysed: a name in it stays.
+
 ## What is processed
 
 | Format | Processed |
@@ -104,7 +132,7 @@ common words under *Lists*.
 | Excel (`.xlsx`) | cells, rich and inline text, formulas, sheet and table names, comments and threaded comments with their persons, pivot caches, headers and footers, data validation, revision logs, properties |
 | PowerPoint (`.pptx`) | slides, notes, layouts and masters, comments and their authors, sections, tags, shape names and alternative texts, properties; thumbnail removed |
 | Markdown, text, CSV, LaTeX, source files | the whole text; encoding, byte order mark and line ends kept |
-| PDF | written as a **text file**: text of the pages (lines rebuilt), annotations and their authors, form values, outline, names of attachments; metadata and attachments are not carried over; a page that is only a picture is marked *scanned page, not processed* |
+| PDF | as a **PDF** (see above), or as a **text file**: text of the pages (lines rebuilt), annotations and their authors, form values, outline, names of attachments; metadata and attachments are not carried over; a page that is only a picture is marked *scanned page, not processed* |
 
 Every other XML part of a package is checked too. **Pictures, embedded
 objects and parts that cannot be read are not analysed**: they are listed

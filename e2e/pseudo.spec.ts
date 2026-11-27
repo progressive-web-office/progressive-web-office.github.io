@@ -1,7 +1,8 @@
 import { expect, test, type Download, type Page } from '@playwright/test';
 import { unzipSync, strFromU8 } from 'fflate';
+import { zipSync } from 'fflate';
 import { openApp, openFile } from './helpers';
-import { docxFixture, listSpreadsheets, rosters } from '../tests/pseudo-fixtures';
+import { docxFixture, listSpreadsheets, odtFixture, pdfFixture, rosters } from '../tests/pseudo-fixtures';
 
 async function bytesOf(d: Download): Promise<Buffer> {
   const chunks: Buffer[] = [];
@@ -327,6 +328,60 @@ test.describe('PSEUDO-041 PSEUDO-042 the mapping table and its file', () => {
     const table = await openTable(Uint8Array.from(bytes), PASSWORD);
     expect(table.people).toHaveLength(16);
     expect(table.files).toHaveLength(2);
+    expect(outside).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('PSEUDO-044 entries of the open folder', () => {
+  test('a ZIP opened as a folder, pseudonymised from the folder itself, formats kept: the PDF masked (FOLDER-032, PSEUDO-043, PSEUDO-024)', async ({ page }) => {
+    const errors = await openApp(page);
+    const outside = await blockNetwork(page);
+    const docx = docxFixture();
+    const odt = odtFixture();
+    const pdf = await pdfFixture();
+    const zip = zipSync({ [`Groupe 1/${docx.name}`]: docx.bytes, [`Groupe 1/${odt.name}`]: odt.bytes, [`Groupe 2/${pdf.name}`]: pdf.bytes });
+    await openFile(page, 'rendus.zip', Buffer.from(zip), 'application/zip');
+    const panel = page.getByRole('complementary', { name: 'Folder' });
+    // FOLDER-032: the folder itself, first entry of the tree.
+    const root = panel.locator('.fs-root');
+    await expect(root).toHaveText('rendus.zip');
+    await expect(panel.getByRole('button', { name: 'Groupe 1' })).toBeVisible();
+    await root.click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Pseudonymise…' }).click();
+
+    await acknowledgeNotice(page);
+    const dialog = page.getByRole('dialog', { name: 'Pseudonymisation' });
+    await expect(dialog.getByText('The files of “rendus.zip”')).toBeVisible();
+    await expect(dialog.getByText('3 files')).toBeVisible();
+    // PSEUDO-043: one choice per kind of file, its own format by default.
+    await expect(dialog.getByLabel('Output of the Word (.docx) files')).toHaveValue('kept');
+    await expect(dialog.getByLabel('Output of the PDF (.pdf) files')).toHaveValue('kept');
+    await dialog.getByLabel('Output of the OpenDocument text (.odt) files').selectOption({ label: 'Word (.docx)' });
+    await chooseList(page, dialog);
+    await dialog.getByLabel('Password of the table', { exact: true }).fill(PASSWORD);
+    await dialog.getByLabel('Password again').fill(PASSWORD);
+    await dialog.getByRole('button', { name: 'Pseudonymise', exact: true }).click();
+    const report = dialog.getByRole('region', { name: 'Report of the pseudonymisation' });
+    await expect(report).toBeVisible({ timeout: 30_000 });
+
+    const download = page.waitForEvent('download');
+    await dialog.getByRole('button', { name: 'Download the copies' }).click();
+    const copies = unzipSync(new Uint8Array(await bytesOf(await download)));
+    const names = Object.keys(copies).sort();
+    expect(names.filter((n) => n.endsWith('.docx'))).toHaveLength(2);
+    const [pdfName] = names.filter((n) => n.endsWith('.pdf'));
+    expect(pdfName).toMatch(/^ETU-\d{3}/);
+    // Flat: no folder names (they may hold names).
+    expect(names.every((n) => !n.includes('/'))).toBe(true);
+    const out = copies[pdfName!]!;
+    expect(strFromU8(out.subarray(0, 5))).toBe('%PDF-');
+    // The first page is a picture now; the metadata and the outline are gone.
+    const latin = Buffer.from(out).toString('latin1');
+    expect(latin).toContain('/Subtype /Image');
+    for (const gone of ['/Outlines', '/AcroForm', '/EmbeddedFiles', 'Compte rendu']) expect(latin).not.toContain(gone);
+    // The masked page is shown to check, as a picture.
+    await expect(report.locator('img').first()).toBeVisible();
     expect(outside).toEqual([]);
     expect(errors).toEqual([]);
   });

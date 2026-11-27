@@ -24,3 +24,4 @@
 .fs-menu { position: fixed; z-index: 1000; display: flex; flex-direction: column; min-width: 12em; padding: 4px; border: 1px solid var(--fs-border, #c9d1dc); border-radius: 6px; background: var(--fs-bg, #fff); color: inherit; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18); }
 .fs-menu-item { text-align: left; border: none; background: transparent; padding: 5px 10px; border-radius: 4px; font: inherit; color: inherit; cursor: pointer; }
 .fs-menu-item:hover, .fs-menu-item:focus { background: var(--fs-hover, rgba(31, 95, 191, 0.12)); outline: none; }
+.fs-entry.fs-root { font-weight: 600; }

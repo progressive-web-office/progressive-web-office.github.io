@@ -22,8 +22,11 @@ read-only folder, *Dropped files (n)*; the first document is shown.
 
 It then opens it as a project: its
 documents are listed in a panel on the left, by sub-folder (a sub-folder
-opens when you click it). Click a document to open it; 📁 in the header
-shows or hides the panel.
+opens when you click it), under the folder itself — the first entry of the
+tree, which folds the whole tree and whose right-click menu acts on the
+whole folder (new file, import, download, **Pseudonymise…**, see
+[Pseudonymisation](./pseudonymisation.md)). Click a document to open it; 📁
+in the header shows or hides the panel.
 
 The panel's toolbar manages the folder:
 

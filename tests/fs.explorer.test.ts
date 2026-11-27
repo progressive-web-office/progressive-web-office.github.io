@@ -231,3 +231,42 @@ describe('FOLDER-024 kinds of new files', () => {
     expect(opened).toEqual(['202410031530 Untitled.md']);
   });
 });
+
+describe('FOLDER-032 file explorer: the folder itself', () => {
+  it('shows the folder as the first entry, holding the tree, folded and unfolded by a click', async () => {
+    const { x, row } = await explorer({ 'a.md': 'A', 'sub/b.md': 'B' }, { root: 'Vault.zip' });
+    const rows = [...x.element.querySelectorAll<HTMLElement>('.fs-entry')];
+    expect(rows[0]!.dataset.path).toBe('');
+    expect(rows[0]!.textContent).toBe('Vault.zip');
+    expect(rows[0]!.getAttribute('aria-expanded')).toBe('true');
+    expect(row('a.md').closest('li')!.parentElement!.closest('li')!.querySelector(':scope > .fs-entry')).toBe(rows[0]);
+    rows[0]!.click();
+    await settle();
+    expect(x.element.querySelector('[data-path="a.md"]')).toBeNull();
+    row('').click();
+    await settle();
+    expect(row('a.md')).not.toBeNull();
+  });
+
+  it('gives the folder the actions of a folder and the host actions, never rename, move or delete', async () => {
+    const seen: string[][] = [];
+    const { provider, x, row, key } = await explorer({ 'a.md': 'A' }, { root: 'Notes', download: () => undefined, actions: (entries) => [['Pseudonymise…', () => seen.push(entries.map((e) => e.path))]] });
+    row('').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 10, clientY: 10 }));
+    const menu = document.querySelector<HTMLElement>('.fs-menu')!;
+    const items = [...menu.querySelectorAll<HTMLElement>('[role=menuitem]')].map((b) => b.textContent);
+    expect(items).toEqual(expect.arrayContaining(['New file', 'New folder', 'Download', 'Pseudonymise…']));
+    for (const no of ['Rename', 'Duplicate', 'Cut', 'Copy', 'Delete', 'Copy the path']) expect(items).not.toContain(no);
+    [...menu.querySelectorAll<HTMLElement>('[role=menuitem]')].find((b) => b.textContent === 'Pseudonymise…')!.click();
+    expect(seen).toEqual([['']]);
+    // Delete and F2 on the folder itself do nothing; Ctrl+A then Delete keeps the folder.
+    row('').focus();
+    key(row(''), 'Delete');
+    key(row(''), 'F2');
+    await settle();
+    expect(await listFiles(provider)).toEqual(['a.md']);
+    key(row(''), 'a', { ctrlKey: true });
+    await x.removeSelected();
+    expect(await listFiles(provider)).toEqual([]);
+    expect(row('')).not.toBeNull();
+  });
+});
