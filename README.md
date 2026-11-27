@@ -119,7 +119,9 @@ more open in a code editor with syntax colouring, line numbers and search.
 - GitHub and GitLab repositories (open and commit), Nextcloud / WebDAV,
   Grist.
 
-**Other**: an optional AI assistant with your own key (Anthropic, OpenAI,
+**Other**: pseudonymisation of documents before sharing them (names of a
+list replaced by pseudonyms on the device, encrypted mapping table,
+re-identification); an optional AI assistant with your own key (Anthropic, OpenAI,
 Mistral, Albert, Ollama on your machine, or any OpenAI-compatible server)
 and WebMCP tools for browser agents; a settings window and a command
 palette (**⌘ Commands**, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>, a round

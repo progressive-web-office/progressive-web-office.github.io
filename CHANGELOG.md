@@ -10,6 +10,20 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
 
 ### Added
 
+- **Pseudonymisation of documents before sharing them** (PSEUDO-001..PSEUDO-033):
+  *🗂 File → 🎭 Pseudonymise…* replaces, on the device and without any
+  network request, the names and identifiers of a list of people (CSV) by
+  pseudonyms, in a copy of the open document or in a folder written to
+  another folder — DOCX, ODT, ODS, ODP, XLSX, PPTX processed as packages
+  (headers, notes, comments, text boxes, fields, tracked changes, metadata,
+  charts…; thumbnails, signatures and linking identifiers removed), Markdown,
+  text and CSV, and PDF files as text. Names found in every form, also
+  decomposed, after labels and in header tables; common words, scientists,
+  short and shared names handled apart. Each output is read again by an
+  independent check (never a bare "OK"); pictures and objects are listed to
+  check visually. The mapping table is an encrypted KDBX file with a
+  deletion date; *🔓 Re-identify…* puts the names back in a text or a file.
+  A notice must be acknowledged first.
 - **AI agents on PDF files and folders** (AI-010, AI-011): the assistant and
   the agents reached through WebMCP read the pages of a PDF file, list and
   fill its form fields (only with values they accept), list its
