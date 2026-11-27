@@ -73,12 +73,13 @@ describe('FILE-021 archives as folders', () => {
   it('tells plain archives from documents and projects', () => {
     expect(isArchive(sample())).toBe(true);
     expect(detectFormat('work.zip', sample())).toBeNull();
-    // A LaTeX project and a ZIP of Markdown notes keep opening as one document.
+    // A LaTeX project and a ZIP holding one Markdown file keep opening as one document; several notes are a folder (FILE-033).
     const tex = writeZip([{ path: 'main.tex', data: '\\documentclass{article}\\begin{document}x\\end{document}' }, { path: 'fig.png', data: new Uint8Array([1]) }, { path: 'refs.bib', data: '' }]);
     expect(isArchive(tex)).toBe(false);
     expect(detectFormat('p.zip', tex)).toBe('texzip');
     const notes = writeZip([{ path: 'a.md', data: '# A' }, { path: 'img/b.png', data: new Uint8Array([1]) }]);
     expect(isArchive(notes)).toBe(false);
+    expect(isArchive(writeZip([{ path: 'a.md', data: '# A' }, { path: 'b.md', data: '# B' }]))).toBe(true);
     // Several LaTeX projects, or LaTeX next to other documents: an archive.
     const many = writeZip([{ path: 'a/main.tex', data: '\\documentclass{article}' }, { path: 'b/main.tex', data: '\\documentclass{article}' }]);
     expect(isArchive(many)).toBe(true);

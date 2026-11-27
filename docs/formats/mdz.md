@@ -102,12 +102,16 @@ wflixu/mdz.
 
 ## Turning a plain ZIP into an MDZ
 
-Any ZIP archive containing Markdown files and images can be opened:
+A ZIP archive containing a single Markdown file and its images opens as a
+document:
 
-1. If it contains a single `.md` file, that file is the document.
-2. If it contains several, you are asked which one is the **entry point**
-   (`index.md`, then `README.md`, are pre-selected).
-3. Relative image links are resolved inside the archive.
+1. Its `.md` file is the document.
+2. Relative image links are resolved inside the archive.
+
+A ZIP holding several Markdown files is a set of notes: it opens as a folder
+(see [ZIP archives](../guide/archives.md)). An MDZ package without `index.md`
+that holds several Markdown files asks which one is the **entry point**
+(`index.md`, then `README.md`, are pre-selected).
 
 Choose **Save** (or *Save as → Markdown package (.mdz)*) to obtain a
 conforming `.mdz`: the manifest is generated, images move to
