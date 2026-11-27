@@ -219,8 +219,13 @@ function detectZipFormat(bytes: Uint8Array): DocumentFormat | null {
   const tex = files.filter((p) => /\.tex$/i.test(p));
   const mains = tex.filter((p) => /\\documentclass/.test(strFromU8(zip[p] ?? EMPTY)));
   if (tex.length && mains.length <= 1 && !foreign && !files.some((p) => /\.(md|markdown)$/i.test(p))) return 'texzip';
-  // MD-014: a plain ZIP of Markdown files (and assets) is imported as MDZ.
-  if (files.some((p) => /\.(md|markdown)$/i.test(p)) && !foreign && !tex.length) return 'mdz';
+  // MD-014: a plain ZIP holding a single Markdown file (and assets) is imported as MDZ;
+  // several notes, or an Obsidian vault, are a folder (FILE-033).
+  // MD-011: a TextBundle (`text.md` next to `info.json`) is one document, whatever its assets hold.
+  if (files.some((p) => /^([^/]+\.textbundle\/)?text\.(md|markdown)$/i.test(p)) && files.some((p) => /^([^/]+\.textbundle\/)?info\.json$/i.test(p))) return 'mdz';
+  const notes = files.filter((p) => /\.(md|markdown)$/i.test(p) && !/(^|\/)\.[^/]+\//.test(p));
+  const vault = files.some((p) => /(^|\/)\.obsidian\//.test(p));
+  if (notes.length === 1 && !vault && !foreign && !tex.length) return 'mdz';
   return null;
 }
 

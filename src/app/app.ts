@@ -2354,6 +2354,15 @@ export class App {
     }
     if (!(await this.setFolder(archive))) return false;
     this.showNotice(t('zip.opened', { name }));
+    // FILE-033: a ZIP of notes (a vault) opens at its entry note, without asking for a main document.
+    const { listFiles } = await import('../fs');
+    const { entryNote, notesOf } = await import('../archive/entry');
+    const paths = await listFiles(archive);
+    const entry = notesOf(paths).length > 1 ? entryNote(paths) : undefined;
+    if (entry) {
+      await this.openFromFolder(entry);
+      await this.folder?.explorer.reveal(entry);
+    }
     return true;
   }
 

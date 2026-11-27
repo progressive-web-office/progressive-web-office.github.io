@@ -10,6 +10,12 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
 
 ### Added
 
+- **A ZIP of Markdown notes opens as a folder** (FILE-033, MD-014, FILE-021):
+  a ZIP holding several notes — an Obsidian vault, for example — is shown
+  in the folder panel like the unzipped folder (tree, search, links between
+  notes), at its entry note (`index.md`, `README.md`, `Home.md`,
+  `00-Accueil.md`…), instead of asking for a main document and opening only
+  that one; a ZIP holding a single note still opens as a document.
 - **Pseudonymisation of documents before sharing them** (PSEUDO-001..PSEUDO-033):
   *🗂 File → 🎭 Pseudonymise…* replaces, on the device and without any
   network request, the names and identifiers of a list of people (CSV) by

@@ -35,9 +35,21 @@ confirmation.
 
 Some ZIP files are documents and open as such: OpenDocument and Office
 files, MDZ files, a LaTeX project (one main `.tex` file with its pictures and
-bibliography, see [LaTeX](./latex.md)) and a ZIP of Markdown notes with their
-pictures. A ZIP holding several LaTeX projects, or LaTeX and Markdown files
-next to office documents or source code, opens as a folder.
+bibliography, see [LaTeX](./latex.md)) and a ZIP holding a single Markdown
+note with its pictures. A ZIP holding several LaTeX projects, or LaTeX and
+Markdown files next to office documents or source code, opens as a folder.
+
+### A ZIP of notes (an Obsidian vault)
+
+A ZIP holding **several Markdown notes** — a vault of notes, an Obsidian vault
+with its `.obsidian/` folder — opens **as a folder**, as the unzipped folder
+would: the tree, the search, the links between notes and the graph work in
+it. No main document is asked for: its entry note opens and is shown in the
+tree — `index.md`, `README.md`, `Home.md`, `Accueil.md`, `Start.md`,
+`Welcome.md`, `Sommaire.md` or `Bienvenue.md` (also after a number, such as
+`00-Accueil.md`), else the only note at its root; a single folder at the top
+of the archive counts as its root. Changes stay in the archive, downloaded
+with **⬇**.
 
 ## Text and source files
 

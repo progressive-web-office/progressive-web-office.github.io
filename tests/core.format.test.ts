@@ -43,8 +43,9 @@ describe('FILE-003 format detection', () => {
     expect(detectFormat('a.mdz', makeZip({ mimetype: 'application/x-mdz', 'index.md': '' }))).toBe('mdz');
   });
 
-  it('MD-014 treats a plain ZIP of Markdown files as an MDZ import', () => {
+  it('MD-014 treats a plain ZIP holding one Markdown file as an MDZ import, several as a folder (FILE-033)', () => {
     expect(detectFormat('notes.zip', makeZip({ 'notes/readme.md': '# x', 'notes/img.png': 'png' }))).toBe('mdz');
+    expect(detectFormat('notes.zip', makeZip({ 'notes/readme.md': '# x', 'notes/b.md': '# y' }))).toBeNull();
   });
 
   it('FILE-004 returns null for unsupported or corrupt files', () => {

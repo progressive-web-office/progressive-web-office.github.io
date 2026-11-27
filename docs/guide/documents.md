@@ -6,7 +6,8 @@ description: Create and edit text documents (Word, OpenDocument, Markdown, MDZ) 
 
 The document editor opens **Word** (`.docx`), **OpenDocument Text** (`.odt`),
 **Markdown** (`.md`) and **MDZ** (`.mdz`, zipped Markdown with images) files,
-any ZIP archive of Markdown files, and **TextBundle** packages (`.textpack`,
+a ZIP archive holding one Markdown file (a ZIP of several notes opens as a
+folder, see [ZIP archives](./archives.md)), and **TextBundle** packages (`.textpack`,
 from Bear, Ulysses, iA Writer…): their `text.md` opens with its pictures, and
 is saved as Markdown or MDZ.
 
