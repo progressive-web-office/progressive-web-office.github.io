@@ -10,6 +10,19 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
 
 ### Added
 
+- **Pseudonymisation keeps the format** (PSEUDO-043, PSEUDO-024): the format
+  of the outputs is asked for each kind of file — the same format (default),
+  plain text, or another format (DOCX ↔ ODT, Markdown; XLSX ↔ ODS, CSV;
+  PPTX ↔ ODP). A PDF stays a PDF: its pages with names are drawn as
+  pictures with the names masked, the others copied; metadata, outline,
+  annotations, form and attachments are removed.
+- **Pseudonymise the open folder** (PSEUDO-044): a ZIP archive or a folder
+  open in the folder panel — or some of its folders and files — is
+  pseudonymised from the explorer's menu or from *Pseudonymise…*, the
+  copies given as one ZIP or written to an output folder.
+- **The folder itself in the explorer** (FOLDER-032): the open folder or
+  archive is the first entry of its tree, with the actions of a folder.
+
 - **Notes written as they are** (MD-020..MD-026): task lists are check boxes
   (every state kept, `[/]`, `[-]`…), code blocks keep and are coloured by
   their language, sizes of pictures (`![[photo.png|300]]`) are applied and

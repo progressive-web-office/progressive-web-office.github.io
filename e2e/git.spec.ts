@@ -138,7 +138,7 @@ test('opens a repository as a folder, each change being a commit (FOLDER-007)', 
   await pick.getByRole('button', { name: 'Open' }).click();
   const panel = page.getByRole('complementary', { name: 'Folder' });
   await expect(panel.getByRole('heading', { name: '📁 me/notes (main)' })).toBeVisible();
-  await expect(panel.locator('.fs-tree > .fs-list > li > .fs-entry')).toHaveText(['docs', 'README.md']);
+  await expect(panel.locator('.fs-root + .fs-list > li > .fs-entry')).toHaveText(['docs', 'README.md']);
 
   // Saving a document of the repository is a commit.
   await panel.getByRole('button', { name: 'README.md' }).click();

@@ -6,6 +6,7 @@
 import { DEFAULT_OPTIONS, type PseudoOptions } from './pipeline';
 import { foldText } from './normalize';
 import type { ColumnMapping } from './roster';
+import { cleanChoices } from './outputs';
 
 const KEY = 'pwo.pseudo';
 const NOTICE_KEY = 'pwo.pseudo.notice';
@@ -22,6 +23,8 @@ export function loadOptions(): PseudoOptions {
       exclusions: Array.isArray(raw.exclusions) ? raw.exclusions.filter((x) => typeof x === 'string') : [],
       commonWords: Array.isArray(raw.commonWords) ? raw.commonWords.filter((x) => typeof x === 'string') : [],
       labels: Array.isArray(raw.labels) ? raw.labels.filter((x) => typeof x === 'string') : [],
+      // PSEUDO-043: the formats chosen, by kind of file.
+      outputs: cleanChoices(raw.outputs),
     };
   } catch {
     return { ...DEFAULT_OPTIONS };

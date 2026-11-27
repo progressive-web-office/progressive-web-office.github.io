@@ -94,9 +94,10 @@ test('imports files, moves with the keyboard, sorts, filters names and undoes a 
   await panel.locator('.fs-explorer input[type=file]').setInputFiles([{ name: 'a.md', mimeType: 'text/markdown', buffer: Buffer.from('# New\n') }]);
   await expect.poll(files).toEqual(['notes/a 2.md', 'notes/a.md', 'notes/b.md', 'z.md']);
   await expect(panel.locator('[data-path="notes/a 2.md"]')).toHaveAttribute('data-meta', /6 B/);
-  // Sort by type keeps folders first.
+  // Sort by type keeps folders first, under the folder itself (FOLDER-032).
   await panel.getByLabel('Sort by').selectOption('size');
-  await expect(panel.locator('.fs-tree > .fs-list > li > .fs-entry')).toHaveText(['notes', 'z.md']);
+  await expect(panel.locator('.fs-tree > .fs-list > li > .fs-entry')).toHaveText(['thesis']);
+  await expect(panel.locator('.fs-root + .fs-list > li > .fs-entry')).toHaveText(['notes', 'z.md']);
   // Select two files, delete them, then undo.
   await panel.getByRole('button', { name: 'a.md', exact: true }).click();
   await panel.getByRole('button', { name: 'b.md' }).click({ modifiers: ['ControlOrMeta'] });

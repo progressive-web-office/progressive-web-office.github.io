@@ -2341,6 +2341,8 @@ export class App {
       error: (message) => this.showError(message),
       prompt: async (message, value) => window.prompt(message, value),
       confirm: async (message) => window.confirm(message),
+      // PSEUDO-044: the folder itself, some of its folders or files, pseudonymised from the explorer.
+      entryActions: (entries) => [[t('pseudo.menuEntries'), () => void this.pseudonymise(entries)]],
       // FILE-021: an archive is written back as a whole, by download.
       ...(folder instanceof ArchiveProvider ? { actions: [button(t('zip.download'), () => void this.downloadArchive(folder), { text: '⬇', className: 'icon' })] } : {}),
       // FOLDER-022: branches and pull requests of a repository opened as a folder.
@@ -2873,32 +2875,68 @@ export class App {
     }, category);
   }
 
-  /** PSEUDO-028, PSEUDO-029: pseudonymise a copy of the open document, or a folder into an output folder. */
-  private async pseudonymise(): Promise<void> {
+  /**
+   * PSEUDO-028, PSEUDO-029, PSEUDO-044: pseudonymise a copy of the open document,
+   * entries of the open folder (from its explorer, or the whole folder), or a
+   * folder of the device into an output folder.
+   */
+  private async pseudonymise(chosen?: import('../fs').Entry[]): Promise<void> {
     const doc = this.current;
     let file: import('../pseudo/pipeline').InputFile | undefined;
-    if (doc && doc.view.save) {
-      const one = t('pseudo.choice.document', { name: doc.name });
+    let entries = chosen;
+    if (!entries) {
+      const one = doc && doc.view.save ? t('pseudo.choice.document', { name: doc.name }) : undefined;
+      const open = this.folder ? t('pseudo.choice.openFolder', { name: this.folder.provider.label }) : undefined;
       const folder = t('pseudo.choice.folder');
-      const choice = await this.choose(t('pseudo.title'), t('pseudo.choice.message'), [one, folder], one, t('common.continue'));
-      if (!choice) return;
-      if (choice === one) {
-        file = await this.pseudonymisationSource(doc);
-        if (!file) return;
+      const offered = [one, open, folder].filter((x): x is string => !!x);
+      if (offered.length > 1) {
+        const choice = await this.choose(t('pseudo.title'), t('pseudo.choice.message'), offered, offered[0]!, t('common.continue'));
+        if (!choice) return;
+        if (choice === one) {
+          file = await this.pseudonymisationSource(doc!);
+          if (!file) return;
+        } else if (choice === open) entries = [{ name: this.folder!.provider.label, path: '', kind: 'directory' }];
       }
     }
+    const fromFolder = entries && this.folder ? await this.folderInputs(entries) : undefined;
     const { openPseudonymisation } = await import('../pseudo/ui/dialog');
     // PSEUDO-039: the open spreadsheet, as it is shown, offered as the list of people.
     const sheet = doc && doc.kind === 'spreadsheet' && doc.view.save ? doc : null;
     await openPseudonymisation({
       host: this.root,
       ...(file ? { file } : {}),
+      ...(fromFolder ? { entries: fromFolder } : {}),
       ...(sheet ? { openSpreadsheet: { name: sheet.name, read: async () => sheet.view.save!(sheet.format) } } : {}),
       notify: (message) => this.showNotice(message),
       openOutput: async (name, bytes) => {
         if ((await this.openBytes(name, bytes)) && this.current?.view.setReadOnly) this.setReadOnly(true);
       },
     });
+  }
+
+  /** PSEUDO-044: the files under entries of the open folder, as inputs of the pseudonymisation. */
+  private async folderInputs(entries: import('../fs').Entry[]): Promise<import('../pseudo/ui/dialog').PseudoHost['entries']> {
+    const provider = this.folder!.provider;
+    const { DirectoryHandleProvider, readBytes, walk } = await import('../fs');
+    const [only] = entries;
+    const label = entries.length === 1 ? (only!.path ? only!.name : provider.label) : t('pseudo.files.selection', { n: entries.length });
+    const paths = entries.map((e) => e.path);
+    const top = entries.filter((e) => !paths.some((p) => p !== e.path && (p === '' || e.path.startsWith(`${p}/`))));
+    let listed: import('../pseudo/pipeline').InputFile[] | undefined;
+    return {
+      label,
+      ...(provider instanceof DirectoryHandleProvider ? { handle: provider.root as unknown as import('../pseudo/folders').FolderHandle } : {}),
+      files: async () => {
+        if (listed) return listed;
+        const out: string[] = [];
+        for (const e of top) {
+          if (e.kind === 'file') out.push(e.path);
+          else for await (const f of walk(provider, e.path)) out.push(f.path);
+        }
+        listed = [...new Set(out)].sort((a, b) => a.localeCompare(b)).map((path) => ({ name: path, read: () => readBytes(provider, path) }));
+        return listed;
+      },
+    };
   }
 
   /** PSEUDO-028: the file as stored; when the document has changes or no stored file, the user says which one. */

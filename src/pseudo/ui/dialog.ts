@@ -11,7 +11,8 @@ import { t, type MessageKey } from '../../i18n';
 import { saveFile } from '../../storage/file-io';
 import { detectFormat } from '../../core/format';
 import type { Markers, Person } from '../engine';
-import { excludedInput, folderFiles, folderProblem, MARKER, writeOutput, type FolderHandle } from '../folders';
+import { excludedInput, folderFiles, folderProblem, MARKER, outputProblem, writeOutput, type FolderHandle } from '../folders';
+import { choiceFor, kindOfName, OUTPUT_CHOICES, OUTPUT_KINDS, type OutputChoice, type OutputChoices, type OutputKind } from '../outputs';
 import { writePackage } from '../package/zip';
 import { pseudonymiseFiles, reportJson, type FileReport, type InputFile, type RunReport } from '../pipeline';
 import { loadOptions, parseList, saveOptions } from '../settings';
@@ -30,6 +31,8 @@ export interface PseudoHost {
   openOutput(name: string, bytes: Uint8Array): Promise<void>;
   /** PSEUDO-039: the open spreadsheet, offered as the list of people. */
   openSpreadsheet?: { name: string; read(): Promise<Uint8Array> };
+  /** PSEUDO-044: entries of the open folder (the folder itself, or some of its folders and files). */
+  entries?: { label: string; files(): Promise<InputFile[]>; handle?: FolderHandle };
 }
 
 export function markers(): Markers {
@@ -257,10 +260,64 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
   commons.value = options.commonWords.join(', ');
   const box = (b: HTMLInputElement): HTMLElement => h('label', { class: 'pseudo-check' }, b, ` ${b.dataset.label ?? ''}`);
 
-  // 4. Files.
+  // 4. Files, and the format of their outputs (PSEUDO-043).
+  const formatsBox = h('div', { class: 'pseudo-formats' });
+  const formatSelects = new Map<OutputKind, HTMLSelectElement>();
+  /** One choice per kind of file among the inputs. */
+  function showFormats(names: readonly string[]): void {
+    const kinds = OUTPUT_KINDS.filter((k) => names.some((n) => kindOfName(n) === k));
+    formatSelects.clear();
+    formatsBox.replaceChildren(
+      ...kinds.map((kind) => {
+        const select = h('select', { 'aria-label': t('pseudo.out.for', { kind: t(`pseudo.out.${kind}` as MessageKey) }) });
+        for (const c of OUTPUT_CHOICES[kind]) select.append(h('option', { value: c }, c === 'kept' ? t(kind === 'pdf' ? 'pseudo.out.keptPdf' : 'pseudo.out.kept') : t(`pseudo.out.${c}` as MessageKey)));
+        select.value = choiceFor(options.outputs, kind);
+        formatSelects.set(kind, select);
+        return field(t('pseudo.out.for', { kind: t(`pseudo.out.${kind}` as MessageKey) }), select);
+      }),
+      ...(kinds.length ? [h('p', { class: 'hint' }, t(kinds.includes('pdf') ? 'pseudo.out.hintPdf' : 'pseudo.out.hint'))] : []),
+    );
+  }
+  const chosenFormats = (): OutputChoices => {
+    const out: OutputChoices = { ...options.outputs };
+    for (const [k, sel] of formatSelects) out[k] = sel.value as OutputChoice;
+    return out;
+  };
   const filesBox = h('div', { class: 'pseudo-files' });
-  if (ctx.file) filesBox.append(h('p', {}, t('pseudo.files.document', { name: ctx.file.name })));
-  else if (picker) {
+  /** PSEUDO-044: the outputs of entries of the open folder: a ZIP to download, or an output folder. */
+  let toFolder: HTMLInputElement | null = null;
+  if (ctx.file) {
+    filesBox.append(h('p', {}, t('pseudo.files.document', { name: ctx.file.name })));
+    showFormats([ctx.file.name]);
+  } else if (ctx.entries) {
+    const count = h('span', { class: 'hint' });
+    filesBox.append(h('p', {}, t('pseudo.files.entries', { name: ctx.entries.label }), ' ', count));
+    void ctx.entries.files().then((files) => {
+      const names = files.map((f) => f.name).filter((n) => HANDLED.test(n));
+      count.textContent = t('pseudo.files.count', { n: names.length });
+      showFormats(names);
+    });
+    if (picker) {
+      const outLabel = h('span', { class: 'hint' });
+      const zip = h('input', { type: 'radio', name: 'pseudo-out', value: 'zip', checked: true });
+      toFolder = h('input', { type: 'radio', name: 'pseudo-out', value: 'folder' });
+      const chooseOut = button(t('pseudo.files.output'), async () => {
+        try {
+          output = await picker({ mode: 'readwrite', id: 'pwo-pseudo-out' });
+          outLabel.textContent = ` ${output.name}`;
+          toFolder!.checked = true;
+        } catch {
+          /* cancelled */
+        }
+      });
+      filesBox.append(
+        h('div', { role: 'radiogroup', 'aria-label': t('pseudo.files.outputs') },
+          h('label', { class: 'pseudo-check' }, zip, ` ${t('pseudo.files.toZip')}`),
+          h('label', { class: 'pseudo-check' }, toFolder, ` ${t('pseudo.files.toFolder')}`), ' ', chooseOut, outLabel),
+        h('p', { class: 'hint' }, t('pseudo.files.separate')),
+      );
+    }
+  } else if (picker) {
     const inLabel = h('span', { class: 'hint' });
     const outLabel = h('span', { class: 'hint' });
     filesBox.append(
@@ -268,6 +325,7 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
         try {
           input = await picker({ mode: 'read', id: 'pwo-pseudo-in' });
           inLabel.textContent = ` ${input.name}`;
+          showFormats((await folderFiles(input, () => false)).map((f) => f.path));
         } catch {
           /* cancelled */
         }
@@ -287,6 +345,7 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
     filesBox.append(
       h('div', {}, button(t('pseudo.files.input'), async () => {
         pickedFiles = await pickFile('', true, true);
+        showFormats(pickedFiles.map((f) => f.name));
         label.textContent = pickedFiles.length ? ` ${t('pseudo.files.count', { n: pickedFiles.length })}` : '';
       }), label),
       h('p', { class: 'hint' }, t('pseudo.files.zip')),
@@ -308,7 +367,7 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
       box(linkable),
       h('details', {}, h('summary', {}, t('pseudo.opt.lists')), field(t('pseudo.opt.exclusions'), exclusions), field(t('pseudo.opt.labels'), labels), field(t('pseudo.opt.common'), commons)),
     ),
-    section(t('pseudo.step.files'), filesBox),
+    section(t('pseudo.step.files'), filesBox, formatsBox),
   );
   body.append(form);
 
@@ -359,7 +418,23 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
     let files: InputFile[];
     let outputDir: FolderHandle | null = null;
     if (ctx.file) files = [ctx.file];
-    else if (picker) {
+    else if (ctx.entries) {
+      if (toFolder?.checked) {
+        if (!output) return setStatus(status, t('pseudo.err.output'), true);
+        const problem = ctx.entries.handle ? await folderProblem(ctx.entries.handle, output) : await outputProblem(output);
+        if (problem && !(problem === 'unknown' && !ctx.entries.handle)) return setStatus(status, t(`pseudo.folder.${problem}` as MessageKey), true);
+        outputDir = output;
+      }
+      const tablePrefix = table.prefix;
+      files = [];
+      for (const f of await ctx.entries.files()) {
+        if (excludedInput(f.name, listName, tablePrefix)) continue;
+        // The list itself, under another name, is not an input either.
+        const bytes = await f.read();
+        if (bytes.length === listBytes.length && sameBytes(bytes, listBytes)) continue;
+        files.push(f);
+      }
+    } else if (picker) {
       if (!input || !output) return setStatus(status, t('pseudo.err.folders'), true);
       const problem = await folderProblem(input, output);
       if (problem) return setStatus(status, t(`pseudo.folder.${problem}` as MessageKey), true);
@@ -380,7 +455,7 @@ export async function openPseudonymisation(ctx: PseudoHost): Promise<void> {
     }
     files = files.filter((f) => HANDLED.test(f.name));
     if (!files.length) return setStatus(status, t('pseudo.err.noFiles'), true);
-    const opts = { ...options, lastNameAlone: lastAlone.checked, firstNameAlone: firstAlone.checked, removePictures: pictures.checked, removeLinkable: linkable.checked, exclusions: parseList(exclusions.value), labels: parseList(labels.value), commonWords: parseList(commons.value) };
+    const opts = { ...options, outputs: chosenFormats(), lastNameAlone: lastAlone.checked, firstNameAlone: firstAlone.checked, removePictures: pictures.checked, removeLinkable: linkable.checked, exclusions: parseList(exclusions.value), labels: parseList(labels.value), commonWords: parseList(commons.value) };
     saveOptions(opts);
     people = assignPseudonyms(table, roster.people);
     list.remember();

@@ -7,9 +7,10 @@
 import { detectFormat, type DocumentFormat } from '../core/format';
 import { commonFromCorpus, corpusStats, createDetector, type Attribution, type Detector, type Markers, type MatchKind, type Person, type RosterNote, type TextUnit } from './engine';
 import { openPackage } from './formats/package';
-import { openPdfText, type PdfLoader } from './formats/pdf-text';
+import { appPdfLoader, openPdfText, type PdfLoader, type PdfRaster } from './formats/pdf-text';
 import { openText } from './formats/text';
-import type { OpenedDocument, UnitEdit, VisualCheck } from './formats/types';
+import { editedTexts, type OpenedDocument, type UnitEdit, type VisualCheck } from './formats/types';
+import { choiceFor, convertOutput, kindOfFormat, type OutputChoices } from './outputs';
 import { LIMITS, Refusal, type RefusalCode } from './limits';
 import { createReidentifier } from './reidentify';
 import { createResidualChecker, statusOf, type Finding, type OutputStatus } from './residual';
@@ -22,6 +23,8 @@ export interface PseudoOptions {
   labels: string[];
   removePictures: boolean;
   removeLinkable: boolean;
+  /** PSEUDO-043: the format of the outputs, by kind of file (`kept` when absent). */
+  outputs: OutputChoices;
 }
 
 export const DEFAULT_OPTIONS: PseudoOptions = {
@@ -32,6 +35,7 @@ export const DEFAULT_OPTIONS: PseudoOptions = {
   labels: [],
   removePictures: false,
   removeLinkable: true,
+  outputs: {},
 };
 
 export interface Replacement {
@@ -72,6 +76,8 @@ export interface RunContext {
   options: PseudoOptions;
   markers?: Markers;
   pdfLoader?: PdfLoader;
+  /** PSEUDO-024: how pages are drawn as pictures (the browser's canvas by default). */
+  pdfRaster?: PdfRaster;
   signal?: AbortSignal;
   progress?: (done: number, total: number, name: string) => void;
 }
@@ -97,7 +103,7 @@ export function handled(format: DocumentFormat | null): boolean {
 async function openFile(name: string, bytes: Uint8Array, format: DocumentFormat, ctx: RunContext): Promise<OpenedDocument> {
   if (PACKAGES.has(format)) return openPackage(bytes, name, { removePictures: ctx.options.removePictures, removeLinkable: ctx.options.removeLinkable, yieldNow, ...(ctx.signal ? { signal: ctx.signal } : {}) });
   if (TEXTS.has(format)) return openText(bytes, name);
-  if (format === 'pdf') return openPdfText(bytes, name, ctx.pdfLoader);
+  if (format === 'pdf') return openPdfText(bytes, name, ctx.pdfLoader, { keep: choiceFor(ctx.options.outputs, 'pdf') === 'kept', ...(ctx.pdfRaster ? { raster: ctx.pdfRaster } : {}) });
   throw new Refusal('unsupported-format', format);
 }
 
@@ -125,6 +131,14 @@ function outputName(attribution: Attribution, people: readonly Person[], index: 
 }
 
 const emptyAttribution: Attribution = { status: 'none', people: [] };
+
+/** PSEUDO-024, PSEUDO-026: what a PDF output holds, read again from its bytes: the text of its pages and the strings of its objects. */
+async function pdfCheckText(bytes: Uint8Array, loader: PdfLoader = appPdfLoader): Promise<Uint8Array> {
+  const again = await openPdfText(bytes, 'output.pdf', loader);
+  // The objects outside the streams (dictionaries, strings): the streams hold the pages, read above, and pictures.
+  const raw = new TextDecoder('latin1').decode(bytes).replace(/stream\r?\n[\s\S]*?endstream/g, '');
+  return new TextEncoder().encode(`${again.units.map((u) => u.text).join('\n')}\n${raw}`);
+}
 
 /** Pseudonymise files: one detector for the whole set, after a first pass that learns the common words. */
 export async function pseudonymiseFiles(files: readonly InputFile[], ctx: RunContext): Promise<RunReport> {
@@ -166,9 +180,25 @@ export async function pseudonymiseFiles(files: readonly InputFile[], ctx: RunCon
       const doc = o.doc;
       const detection = detector.scan(doc.units, { fileName: baseName(f.name) });
       const edits: UnitEdit[] = detection.matches;
-      const bytes = await doc.write(edits);
-      const output = outputName(detection.attribution, ctx.people, i + 1, doc.outputExtension, used);
-      const findings = checker.check(bytes, output, doc.outputExtension === '.txt' || TEXTS.has(o.format!));
+      // PSEUDO-043: written in its own format, then converted where another one was chosen.
+      const kind = kindOfFormat(o.format);
+      const choice = kind === 'pdf' ? 'kept' : choiceFor(ctx.options.outputs, kind);
+      const left: string[] = [];
+      let bytes: Uint8Array;
+      let extension = doc.outputExtension;
+      if (choice === 'text') {
+        bytes = new TextEncoder().encode(`${editedTexts(doc.units, edits).filter((t) => t.trim()).join('\n')}\n`);
+        extension = '.txt';
+      } else if (choice !== 'kept' && kind) {
+        const converted = await convertOutput(await doc.write(edits), kind, choice);
+        bytes = converted.bytes;
+        extension = converted.extension;
+        left.push(...converted.removed);
+      } else bytes = await doc.write(edits);
+      // Read after writing: a PDF says then which pages were drawn.
+      const removed = [...doc.removed, ...left];
+      const output = outputName(detection.attribution, ctx.people, i + 1, extension, used);
+      const findings = checker.check(extension === '.pdf' ? await pdfCheckText(bytes, ctx.pdfLoader) : bytes, output, extension === '.pdf' || /^\.(txt|md|csv)$/.test(extension) || (choice === 'kept' && TEXTS.has(o.format!)));
       const unit = (k: number): TextUnit => doc.units[k]!;
       const checks = detection.checks.map((c) => ({ where: unit(c.unit).where, excerpt: unit(c.unit).text.slice(c.start, c.end) }));
       const unclear = detection.attribution.status === 'none' || detection.attribution.status === 'ambiguous' ? 1 : 0;
@@ -180,7 +210,7 @@ export async function pseudonymiseFiles(files: readonly InputFile[], ctx: RunCon
         attribution: detection.attribution,
         replacements: detection.matches.map((m) => ({ kind: m.kind, where: unit(m.unit).where, before: unit(m.unit).text.slice(m.start, m.end), after: m.replacement, ...(m.person ? { person: m.person } : {}) })),
         toCheck: doc.toCheck,
-        removed: doc.removed,
+        removed,
         findings,
         checks,
         pseudonymLike: detection.pseudonymLike,

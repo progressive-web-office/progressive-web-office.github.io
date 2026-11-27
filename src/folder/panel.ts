@@ -36,6 +36,8 @@ export interface FolderPanelHooks {
   openCalendar?(): void;
   /** FOLDER-026: show this at the bottom of the open note's page (`null`: take it back); false when it cannot. */
   pageBottom?(el: HTMLElement | null): boolean;
+  /** More actions of the explorer's menu for the selected entries (PSEUDO-044). */
+  entryActions?(entries: Entry[]): [label: string, run: () => unknown][];
 }
 
 const ICONS: [RegExp, string][] = [
@@ -171,6 +173,9 @@ export class FolderPanel {
       ...(savedSort() ? { sort: savedSort() } : {}),
       // FOLDER-014: a file as it is, folders or several entries as a ZIP archive.
       download: (entries) => this.download(entries),
+      // FOLDER-032: the folder itself, first entry of the tree.
+      root: provider.label,
+      ...(hooks.entryActions ? { actions: hooks.entryActions } : {}),
       onSort: (key) => {
         try {
           localStorage.setItem(SORT_KEY, key);
@@ -236,7 +241,7 @@ export class FolderPanel {
       if (e.kind === 'file') files.push({ path: rel(e.path), data: new Uint8Array(await (await this.provider.read(e.path)).arrayBuffer()) });
       else for await (const f of walk(this.provider, e.path, { skip: () => false })) files.push({ path: rel(f.path), data: new Uint8Array(await (await this.provider.read(f.path)).arrayBuffer()) });
     }
-    const name = entries.length === 1 ? only!.name : this.provider.label;
+    const name = (entries.length === 1 ? only!.name : this.provider.label).replace(/\.zip$/i, '');
     save(new Blob([writeZip(files) as BlobPart], { type: 'application/zip' }), `${name}.zip`);
   }
 

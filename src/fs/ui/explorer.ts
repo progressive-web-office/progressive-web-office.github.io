@@ -121,6 +121,10 @@ export interface ExplorerOptions {
   download?(entries: Entry[]): void | Promise<void>;
   /** Put text on the clipboard (default: the browser's clipboard). */
   copyText?(text: string): void | Promise<void>;
+  /** FOLDER-032: the name of the folder itself, shown as the first entry of the tree (path ""). */
+  root?: string;
+  /** More actions of the menu for the selected entries (the root included). */
+  actions?(entries: Entry[]): [label: string, run: () => unknown][];
 }
 
 /** Entries in the given order, folders first (newest, largest first for dates and sizes). */
@@ -272,7 +276,7 @@ export class Explorer {
   /** Reload the tree, keeping open folders open. */
   async refresh(): Promise<void> {
     try {
-      this.tree.replaceChildren(await this.renderDir(''));
+      this.tree.replaceChildren(this.opts.root === undefined ? await this.renderDir('') : await this.renderRoot(this.opts.root));
     } catch (err) {
       this.fail(err);
     }
@@ -327,7 +331,36 @@ export class Explorer {
 
   private entryOf(row: HTMLElement): Entry {
     const path = row.dataset.path!;
-    return { name: basename(path), path, kind: row.classList.contains('fs-directory') ? 'directory' : 'file' };
+    return { name: path ? basename(path) : (this.opts.root ?? ''), path, kind: row.classList.contains('fs-directory') ? 'directory' : 'file' };
+  }
+
+  /** FOLDER-032: the folder itself, holding the tree; it can be folded, selected and given actions, never renamed, moved or deleted. */
+  private async renderRoot(name: string): Promise<HTMLElement> {
+    const list = el('ul', { className: 'fs-list' });
+    list.setAttribute('role', 'list');
+    const entry: Entry = { name, path: '', kind: 'directory' };
+    const row = el('button', { type: 'button', className: 'fs-entry fs-directory fs-root', title: name, dataset: { path: '', icon: this.opts.icon?.(entry) ?? '📁' } }, el('span', { className: 'fs-name', textContent: name }));
+    if (this.chosen.has('')) row.classList.add('fs-selected');
+    row.addEventListener('mousedown', () => {
+      this.pointer = true;
+    });
+    row.addEventListener('focus', () => {
+      if (this.pointer) this.pointer = false;
+      else if (this.keep) this.keep = false;
+      else this.select(entry);
+    });
+    row.addEventListener('click', (ev) => {
+      this.pointer = false;
+      if (ev.ctrlKey || ev.metaKey) return this.toggleChosen(entry);
+      this.select(entry);
+      void this.toggle(entry, row);
+    });
+    const open = this.expanded.has('');
+    row.setAttribute('aria-expanded', String(open));
+    const li = el('li', {}, row);
+    if (open) li.append(await this.renderDir(''));
+    list.append(li);
+    return list;
   }
 
   private async renderDir(path: string): Promise<HTMLElement> {
@@ -674,7 +707,7 @@ export class Explorer {
 
   async renameSelected(): Promise<void> {
     const s = this.selected;
-    if (!s) return;
+    if (!s?.path) return;
     const name = await this.prompt(this.strings.namePrompt, s.name);
     if (!name || name === s.name) return;
     try {
@@ -720,7 +753,8 @@ export class Explorer {
   }
 
   async removeSelected(): Promise<void> {
-    const targets = topmost(this.selection().length ? this.selection() : this.selected ? [this.selected.path] : []).map((p) => this.chosen.get(p) ?? this.selected!);
+    // The folder itself is never deleted (FOLDER-032).
+    const targets = topmost((this.selection().length ? this.selection() : this.selected ? [this.selected.path] : []).filter(Boolean)).map((p) => this.chosen.get(p) ?? this.selected!);
     if (!targets.length) return;
     // What would be deleted, to put it back (FOLDER-011).
     let size = 0;
@@ -814,12 +848,12 @@ export class Explorer {
   }
 
   copySelection(): void {
-    const entries = this.targets();
+    const entries = this.targets().filter((e) => e.path);
     if (entries.length) this.clip = { cut: false, entries };
   }
 
   cutSelection(): void {
-    const entries = this.targets();
+    const entries = this.targets().filter((e) => e.path);
     if (entries.length && this.provider.capabilities.write) this.clip = { cut: true, entries };
   }
 
@@ -855,7 +889,7 @@ export class Explorer {
   async duplicateSelection(): Promise<void> {
     const changes: ExplorerChange[] = [];
     try {
-      for (const e of this.targets()) {
+      for (const e of this.targets().filter((x) => x.path)) {
         const dir = dirname(e.path);
         const to = join(dir, await freeName(this.provider, dir, e.name));
         await copy(this.provider, e.path, this.provider, to);
@@ -904,7 +938,9 @@ export class Explorer {
         [this.strings.importFiles, () => this.picker.click()],
       );
     }
-    if (entries.length) {
+    // The folder itself (FOLDER-032) is not renamed, copied, moved or deleted.
+    const movable = entries.length > 0 && entries.every((e) => e.path);
+    if (movable) {
       if (writable && one) items.push([this.strings.rename, () => this.renameSelected()]);
       if (writable) items.push([this.strings.duplicate, () => this.duplicateSelection()]);
       items.push([this.strings.copy, () => this.copySelection()]);
@@ -913,9 +949,10 @@ export class Explorer {
     if (writable && this.clip) items.push([this.strings.paste, () => this.paste()]);
     if (entries.length) {
       if (this.opts.download) items.push([this.strings.download, () => this.downloadSelection()]);
-      items.push([this.strings.copyPath, () => this.copyPath()]);
-      if (writable) items.push([this.strings.remove, () => this.removeSelected()]);
+      if (movable) items.push([this.strings.copyPath, () => this.copyPath()]);
+      if (writable && movable) items.push([this.strings.remove, () => this.removeSelected()]);
     }
+    items.push(...(this.opts.actions?.(entries.length ? entries : [{ name: this.opts.root ?? '', path: '', kind: 'directory' }]) ?? []));
     const menu = el('div', { className: 'fs-menu' });
     menu.setAttribute('role', 'menu');
     menu.setAttribute('aria-label', this.strings.menu);
