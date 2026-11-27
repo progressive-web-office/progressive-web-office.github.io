@@ -556,6 +556,11 @@ The **View** menu of the toolbar (or the command palette, *Editing mode*)
 switches how the document is edited:
 
 - **Visual editing** — the page as it will look (the usual mode);
+- **Live preview** — for a Markdown file: the page formatted, except the
+  paragraph or heading holding the cursor, which shows its Markdown
+  (`**bold**`, `## Title`, `[text](address)`, `[[note]]`, `$x^2$`) to edit as
+  text; it is formatted again when the cursor leaves it. A paragraph holding
+  a picture, a code cell or a field stays formatted;
 - **Source** — for a Markdown (`.md`) or LaTeX (`.tex`) file: its text, in
   colour, on the left, and a **live preview** on the right (one above the
   other on a phone). Everything Markdown or LaTeX can say can be typed;
@@ -568,6 +573,20 @@ The bar at the top shows the mode and goes back to visual editing in one
 click. The mode is remembered for each kind of document (Markdown, LaTeX,
 the others): a Markdown writer who prefers the source finds it again with
 the next note.
+
+## Links
+
+While editing, a **click on a link** shows it in a bubble under it — its
+address, or the note it points to — with **Open**, **Edit**, **Copy the
+address** and **Remove the link**; the cursor stays in the text, so a link
+can be clicked to change its words. <kbd>Ctrl</kbd>+click
+(<kbd>Cmd</kbd>+click on a Mac) follows the link, and a click follows it
+while reading. To make a click follow links, choose **Follow the link** in
+the **View** menu or in *Settings → Writing → Click on a link*.
+
+In a folder, the pointer resting on a link to a note shows the beginning of
+that note (or the section of its heading, or its block) in a popup; with
+<kbd>Ctrl</kbd> held it shows at once. <kbd>Esc</kbd> closes it.
 
 ## Comments
 

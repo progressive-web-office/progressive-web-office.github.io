@@ -84,8 +84,12 @@ test('notes: tasks, coloured code, comments, HTML blocks, folded callouts, embed
   await expect(page.locator('.doc-page .md-comment')).toBeHidden();
   await page.locator('.doc-mode-bar').getByRole('button', { name: 'Visual editing' }).click();
 
-  // MD-025, FOLDER-003: a click on a link to a block opens the note at that block.
+  // DOC-055: a click shows the link, the document staying; MD-025, FOLDER-003: Open goes to the note at that block.
   await page.locator('.doc-page').getByRole('link', { name: 'Cours > ^b1' }).click();
+  const bubble = page.getByRole('toolbar', { name: 'Link', exact: true });
+  await expect(bubble).toContainText('Cours#^b1');
+  await expect(page.locator('.doc-page h1')).toHaveText('Accueil');
+  await bubble.getByRole('button', { name: 'Open' }).click();
   await expect(page.locator('.doc-page h1')).toHaveText('Cours');
   await expect(page.locator('.doc-page .block-target')).toHaveText('Paragraphe cible');
   expect(errors).toEqual([]);

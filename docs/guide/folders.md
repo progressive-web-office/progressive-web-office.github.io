@@ -111,9 +111,12 @@ A folder of Markdown notes works as a set of linked notes:
 - `[[Note]]` links to the note `Note.md` (in the same folder first, then
   anywhere in the folder, then by one of its `aliases:` in the front matter);
   `[[Note#Heading]]` goes to a heading, `[[Note#^id]]` to a block,
-  `[[Note|shown text]]` shows another text. A click follows a wiki link (<kbd>Ctrl</kbd>+click follows any other link,
-  a click too while reading); a link to a note that does
-  not exist yet offers to create it.
+  `[[Note|shown text]]` shows another text. A click on a link shows it in a
+  bubble (*Open* goes to the note; see [links](./documents.md#links));
+  <kbd>Ctrl</kbd>+click follows it, and so does a click while reading; a link
+  to a note that does not exist yet offers to create it. The pointer resting
+  on a link to a note shows the beginning of the note (with <kbd>Ctrl</kbd>
+  held, at once).
 - **How a link finds its file** — for wiki links, embeds (`![[…]]`),
   pictures and the file cards of a canvas, in this order: the path relative
   to the file naming it (`Sessions/S1.md`, `../Index.md`); the path from the

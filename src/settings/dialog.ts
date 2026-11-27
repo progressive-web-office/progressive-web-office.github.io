@@ -14,6 +14,7 @@ import { FORMAT_FAMILIES, loadFormatFamily, saveFormatFamily, type FormatFamily 
 import { loadReading, saveReading, type ReadingSettings } from '../review/settings';
 import { PAGES_PER_ROW } from '../pdf/fit';
 import { loadTypography, saveTypography } from '../document/typography';
+import { loadLinkClick, saveLinkClick, type LinkClick } from '../document/link-click';
 import { loadPrintSettings, PAPER_SIZES, savePrintSettings, type Paper } from '../print/settings';
 import { loadCollabNetwork, parseRelays, saveCollabNetwork } from '../collab/network';
 import { loadReactivity, REACTIVITY, saveReactivity } from '../code/settings';
@@ -149,6 +150,8 @@ function writingPanel(): HTMLElement[] {
   const modes: Record<(typeof REACTIVITY)[number], MessageKey> = { lazy: 'settings.reactLazy', auto: 'settings.reactAuto', off: 'settings.reactOff' };
   return [
     field(t('text.typography'), check(loadTypography(), saveTypography), t('settings.typographyHint')),
+    // DOC-055: what a click on a link does while editing.
+    field(t('link.click'), select([['show', t('link.clickShow')], ['follow', t('link.clickFollow')]], loadLinkClick(), (v) => saveLinkClick(v as LinkClick)), t('link.clickHint')),
     // CODE-014: how code cells react to each other.
     field(t('settings.reactivity'), select(REACTIVITY.map((m) => [m, t(modes[m])]), loadReactivity(), saveReactivity), t('settings.reactivityHint')),
     // DOC-054: each ruler on its own, and the unit of the page.
