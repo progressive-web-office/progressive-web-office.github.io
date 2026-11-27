@@ -51,6 +51,10 @@ For example, to read two whole pages side by side, page by page: 2 pages,
 
 - **Typography as you type**: curly quotes, dashes, ellipsis and French
   no-break spaces (for the documents opened next).
+- **Click on a link**: while editing, *show the link* (a bubble with its
+  address and *Open*, *Edit*, *Copy the address*, *Remove the link* — the
+  default) or *follow the link*. <kbd>Ctrl</kbd>+click always follows it. See
+  [links](./documents#links).
 - **When a code cell runs**: what happens to the cells using it —
   marked as out of date (the default), run too, or nothing (the classic
   notebook, cells run in the order of the document). See

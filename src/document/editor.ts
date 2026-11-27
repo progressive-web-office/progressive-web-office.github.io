@@ -36,6 +36,11 @@ import { readLatex } from './latex-reader';
 import { addResource, allParagraphs, cleanPageSetup, defaultGeometry, isFillRun, isLandscape, paperName, textHeight, textWidth, type PageGeometry, FIELD_KINDS, INPUT_KINDS, type InputKind, fieldValue, newAnchor, wordCount, type CodeLang, type FieldContext, type FieldKind, type FieldFormat, type FieldRun, type Run, type Align, type Block, type ParagraphStyle, type RichDocument, type Revision } from './model';
 import type { CodeRunner } from '../code/runner';
 import { blockToPm, blocksToPm, pmCiteRuns, pmCrossTargets, pmToBlocks, type PmCrossRefs } from './pm/convert';
+import { concealedDoc, livePlugin } from './pm/live';
+import { linkBubblePlugin } from './pm/link-bubble';
+import { attachNotePreview } from './note-preview';
+import { renderEmbed } from './embeds';
+import { loadLinkClick, saveLinkClick } from './link-click';
 import { schema } from './pm/schema';
 import { linkRange, removeLink } from './pm/commands';
 import { columnsAt, columnsOf, setColumns } from './pm/columns';
@@ -139,14 +144,14 @@ function saveHyphenation(on: boolean): void {
 }
 
 
-/** DOC-044: how a document is edited; the last choice is kept per kind of document. */
-type EditMode = 'visual' | 'source' | 'reading';
+/** DOC-044: how a document is edited; the last choice is kept per kind of document. DOC-056: live preview, for Markdown. */
+type EditMode = 'visual' | 'live' | 'source' | 'reading';
 const MODE_KEY = 'pwo.doc.mode';
 function loadEditMode(kind: string): EditMode | undefined {
   try {
     const all = JSON.parse(localStorage.getItem(MODE_KEY) ?? '{}') as Record<string, unknown>;
     const m = all[kind];
-    return m === 'visual' || m === 'source' || m === 'reading' ? m : undefined;
+    return m === 'visual' || m === 'live' || m === 'source' || m === 'reading' ? m : undefined;
   } catch {
     return undefined;
   }
@@ -349,6 +354,16 @@ export class DocumentEditor implements EditorView {
         state: EditorState.create({
           doc: blocksToPm(doc.blocks),
           plugins: [
+            // DOC-056: the block holding the cursor shown as Markdown (first: it reads the block again before Enter and joins).
+            livePlugin({ enabled: () => this.mode === 'live' && !this.readOnly && !this.reviewing }),
+            // DOC-055: the bubble of the link holding the cursor.
+            linkBubblePlugin({
+              enabled: () => this.editing && !this.readOnly && !this.reviewing,
+              open: (href) => this.followLink(href),
+              edit: () => this.insertLink(),
+              copy: (text) => void navigator.clipboard?.writeText(text).then(() => this.ctx.notify?.(t('link.copied'))),
+              labels: { bubble: t('link.bubble'), open: t('link.open'), edit: t('link.edit'), copy: t('link.copy'), remove: t('link.remove'), note: t('link.note') },
+            }),
             // DOC-031: typography as you type, in the document's language.
             typographyRules({ enabled: () => this.typography, lang: () => this.lang() }),
             // DOC-033, DOC-035: readability and focus decorations.
@@ -401,32 +416,33 @@ export class DocumentEditor implements EditorView {
           editImage: (pos, node) => void (this.doc.resources.get(node.attrs.image as string)?.mediaType === 'image/svg+xml' ? this.editDrawing(pos) : this.describeImage(pos, node)),
           fieldContext: (pos) => this.fieldContext(pos),
         }),
-        editable: () => !this.readOnly && !this.reviewing && this.mode === 'visual',
+        editable: () => !this.readOnly && !this.reviewing && this.editing,
         // DOC-048: the document's language, for hyphenation and the spelling checker.
         attributes: () => ({ role: 'textbox', 'aria-multiline': 'true', 'aria-label': t('doc.label'), spellcheck: 'true', class: 'doc-page', lang: this.lang() }),
         dispatchTransaction: (tr) => this.dispatch(tr),
         handlePaste: (_view, event) => this.onPaste(event),
-        // FOLDER-003: a click follows a link to a note (wiki link), and any link while reading; Ctrl+click follows any link.
+        // DOC-055, FOLDER-003: while editing, a click shows the link (its bubble) or follows it, as the setting says;
+        // Ctrl+click (Cmd+click) always follows it, and so does a click while reading.
         handleClick: (view, pos, event) => {
           const mark = schema.marks.link!.isInSet(view.state.doc.resolve(pos).marks());
           const href = (event.target as HTMLElement).closest?.('a[href]:not(.xref)')?.getAttribute('href') ?? (mark?.attrs.href as string | undefined);
           if (!href || href.startsWith('#')) return false;
           const reading = this.mode === 'reading' || this.readOnly || this.reviewing;
-          if (!(event.ctrlKey || event.metaKey) && !reading && !href.startsWith('wiki:')) return false;
+          if (!(event.ctrlKey || event.metaKey) && !reading && loadLinkClick() !== 'follow') return false;
           if (event.shiftKey || event.altKey || event.button !== 0) return false;
-          if (!this.ctx.openLink?.(href) && isSafeUrl(href)) window.open(href, '_blank', 'noopener');
+          this.followLink(href);
           return true;
         },
         // DOC-050: a click on a field changes it.
         handleClickOn: (_view, _pos, node, nodePos, event) => {
-          if (node.type !== schema.nodes.field || this.readOnly || this.mode !== 'visual' || event.ctrlKey || event.metaKey || event.shiftKey) return false;
+          if (node.type !== schema.nodes.field || this.readOnly || !this.editing || event.ctrlKey || event.metaKey || event.shiftKey) return false;
           setTimeout(() => void this.editFieldAt(nodePos));
           return true;
         },
         handleDrop: (_view, event) => this.onDrop(event as DragEvent),
         // Springs, spaces and form fields are changed again by a double click (DOC-042, FORM-003).
         handleDoubleClickOn: (_view, _pos, node, nodePos) => {
-          if (this.readOnly || this.mode !== 'visual') return false;
+          if (this.readOnly || !this.editing) return false;
           if (node.type === schema.nodes.space || node.type === schema.nodes.hfill) {
             this.changeSpace(nodePos);
             return true;
@@ -449,6 +465,14 @@ export class DocumentEditor implements EditorView {
         },
       },
     );
+    // DOC-057: the beginning of a note shown when the pointer rests on a link to it.
+    this.stopPreview = attachNotePreview(this.view.dom, {
+      enabled: () => !!this.ctx.embedFile,
+      render: (ref) => {
+        const ctx = this.embedContext();
+        return ctx ? renderEmbed(ref, ctx) : undefined;
+      },
+    });
     // UI-021: a menu of what can be done where the pointer is (right click, long press).
     onContextMenu(this.view.dom, (x, y, target) => this.showContextMenu(x, y, target));
     // DOC-042: springs follow the text, the window and the printed page.
@@ -537,10 +561,19 @@ export class DocumentEditor implements EditorView {
     this.renderFurniture();
   }
 
-  /** DOC-044: switch between visual editing, the source with its preview, and reading. */
+  /** DOC-057: stops the previews of notes. */
+  private stopPreview: () => void = () => undefined;
+
+  /** Visual editing or live preview: the page itself is edited. */
+  private get editing(): boolean {
+    return this.mode === 'visual' || this.mode === 'live';
+  }
+
+  /** DOC-044: switch between visual editing, live preview (DOC-056), the source with its preview, and reading. */
   setMode(mode: EditMode): void {
     const lang = this.sourceLang();
     if (mode === 'source' && !lang) return;
+    if (mode === 'live' && lang !== 'markdown') return;
     if (mode === this.mode) return;
     if (this.mode === 'source') {
       this.syncSource();
@@ -550,6 +583,9 @@ export class DocumentEditor implements EditorView {
     this.mode = mode;
     this.element.classList.toggle('source-mode', mode === 'source');
     this.element.classList.toggle('reading-mode', mode === 'reading');
+    this.element.classList.toggle('live-mode', mode === 'live');
+    // DOC-056: the block shown as Markdown is read again when the live preview ends, shown when it starts.
+    this.view.dispatch(this.view.state.tr);
     if (mode === 'source' && lang) {
       this.sourcePane = new SourcePane({
         text: this.sourceText(lang),
@@ -561,9 +597,9 @@ export class DocumentEditor implements EditorView {
       });
       this.modeBar.after(this.sourcePane.element);
     }
-    this.modeBar.hidden = mode === 'visual';
+    this.modeBar.hidden = mode === 'visual' || mode === 'live';
     this.modeBar.replaceChildren(
-      ...(mode === 'visual'
+      ...(mode === 'visual' || mode === 'live'
         ? []
         : [
             h('span', {}, mode === 'source' ? `</> ${t(lang === 'latex' ? 'mode.sourceLatex' : 'mode.sourceMarkdown')}` : `📖 ${t('mode.reading')}`),
@@ -575,7 +611,7 @@ export class DocumentEditor implements EditorView {
     this.view.setProps({});
     saveEditMode(this.modeKind(), mode);
     if (mode === 'source') this.sourcePane?.focus();
-    else if (mode === 'visual') this.view.focus();
+    else if (this.editing) this.view.focus();
     this.ctx.statusChanged();
   }
 
@@ -1694,7 +1730,7 @@ export class DocumentEditor implements EditorView {
   mounted(): void {
     // DOC-044: the mode last chosen for this kind of document (the file's name is known now).
     const saved = loadEditMode(this.modeKind());
-    if (saved === 'reading' || (saved === 'source' && this.sourceLang())) this.setMode(saved);
+    if (saved === 'reading' || (saved === 'source' && this.sourceLang()) || (saved === 'live' && this.sourceLang() === 'markdown')) this.setMode(saved);
     this.viewMenu.dispatchEvent(new Event('refill'));
     // NOTE-001: a Markdown note shows its properties (the file's name is known now).
     this.renderFurniture();
@@ -1820,8 +1856,11 @@ export class DocumentEditor implements EditorView {
         h('option', { value: '' }, t('wview.menu')),
         // DOC-044: editing modes.
         h('option', { value: 'mode-visual' }, `${mark(this.mode === 'visual')}${t('mode.visual')}`),
+        ...(this.sourceLang() === 'markdown' ? [h('option', { value: 'mode-live' }, `${mark(this.mode === 'live')}${t('mode.live')}`)] : []),
         ...(this.sourceLang() ? [h('option', { value: 'mode-source' }, `${mark(this.mode === 'source')}${t('mode.source')}`)] : []),
         h('option', { value: 'mode-reading' }, `${mark(this.mode === 'reading')}${t('mode.reading')}`),
+        // DOC-055: what a click on a link does.
+        h('optgroup', { label: t('link.click') }, h('option', { value: 'link-show' }, `${mark(loadLinkClick() === 'show')}${t('link.clickShow')}`), h('option', { value: 'link-follow' }, `${mark(loadLinkClick() === 'follow')}${t('link.clickFollow')}`)),
         h('option', { value: 'hyphenate' }, `${mark(this.element.classList.contains('hyphenate'))}${t('typo.hyphenate')}`),
         // DOC-054: each ruler on its own, and the unit of the page.
         h('option', { value: 'ruler-h' }, `${mark(this.element.classList.contains('show-ruler-h'))}${t('ruler.horizontal')}`),
@@ -1854,6 +1893,11 @@ export class DocumentEditor implements EditorView {
       select.value = '';
       if (value.startsWith('mode-')) {
         this.setMode(value.slice(5) as EditMode);
+        fill();
+        return;
+      }
+      if (value === 'link-show' || value === 'link-follow') {
+        saveLinkClick(value === 'link-show' ? 'show' : 'follow');
         fill();
         return;
       }
@@ -2310,7 +2354,7 @@ export class DocumentEditor implements EditorView {
     // UI-022: what the context menu offers, by category.
     const where = t('doc.formatting');
     const fields = FIELD_KINDS.map((kind) => ({ label: t(`field.${kind}`), category: t('field.menu'), where, run: () => this.insertField(kind) }));
-    const modes = (['visual', ...(this.sourceLang() ? ['source' as const] : []), 'reading'] as EditMode[]).filter((m) => m !== this.mode).map((m) => ({ label: t(`mode.${m}`), category: t('mode.menu'), where, run: () => this.setMode(m) }));
+    const modes = (['visual', ...(this.sourceLang() === 'markdown' ? ['live' as const] : []), ...(this.sourceLang() ? ['source' as const] : []), 'reading'] as EditMode[]).filter((m) => m !== this.mode).map((m) => ({ label: t(`mode.${m}`), category: t('mode.menu'), where, run: () => this.setMode(m) }));
     const formInputs = INPUT_KINDS.map((kind) => ({ label: kindLabelOf(kind), category: t('form.inDoc'), where, run: () => void this.editInput(kind) }));
     const springs = (['spring', 'fixed', 'hfill'] as const).map((kind) => ({ label: t(kind === 'spring' ? 'space.insertSpring' : kind === 'fixed' ? 'space.insertFixed' : 'space.insertHfill'), category: t('space.menu'), where, run: () => this.insertSpace(kind) }));
     const state = this.view.state;
@@ -2515,6 +2559,7 @@ export class DocumentEditor implements EditorView {
     if (this.springsFrame) cancelAnimationFrame(this.springsFrame);
     if (this.review.active) this.review.toggle(false, false);
     this.runner?.destroy();
+    this.stopPreview();
     this.view.destroy();
     clearTimeout(this.statusTimer);
     if (typeof URL.revokeObjectURL === 'function') for (const url of this.urls.values()) if (url.startsWith('blob:')) URL.revokeObjectURL(url);
@@ -2690,7 +2735,8 @@ export class DocumentEditor implements EditorView {
 
   private currentBlocks(): Block[] {
     if (this.mode === 'source') this.syncSource();
-    const blocks = pmToBlocks(this.view.state.doc);
+    // DOC-056: never the Markdown shown in place of a block.
+    const blocks = pmToBlocks(concealedDoc(this.view.state));
     // DOC-042: springs as shown, for the formats without springs.
     const { spaces, fills } = measureSprings(this.view);
     for (const b of blocks) if (b.type === 'space') b.size = spaces.shift() ?? b.size;
@@ -2961,6 +3007,11 @@ export class DocumentEditor implements EditorView {
     if (!value) return;
     this.command(setParagraphAttrs({ indent: value.indent ?? null, firstLine: value.firstLine ?? null, spaceBefore: value.spaceBefore ?? null, spaceAfter: value.spaceAfter ?? null, lineHeight: value.lineHeight ?? null }));
     this.refocus();
+  }
+
+  /** Open a link: a note or a file of the folder, else a web address in a new tab. */
+  private followLink(href: string): void {
+    if (!this.ctx.openLink?.(href) && isSafeUrl(href)) window.open(href, '_blank', 'noopener');
   }
 
   private insertLink(): void {

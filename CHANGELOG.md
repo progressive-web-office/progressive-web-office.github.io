@@ -10,6 +10,15 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
 
 ### Added
 
+- **Links shown, followed on Ctrl+click** (DOC-055): while editing, a click on
+  a link shows a bubble with its address (or note) and *Open*, *Edit*, *Copy
+  the address*, *Remove the link*; Ctrl+click (Cmd+click) follows it. A
+  setting (View menu, *Settings → Writing*) makes a click follow links.
+- **Live preview of Markdown** (DOC-056): a mode showing the note formatted,
+  except the block holding the cursor, shown as its Markdown to edit, read
+  again when the cursor leaves it.
+- **Preview of a linked note** (DOC-057): the pointer resting on a link to a
+  note shows its beginning (or the section, or the block) in a popup.
 - **Math cells — computer algebra** (CAS-001..CAS-006): a cell whose
   expression is written in a math field and computed by SymPy, its result
   shown as an equation. Operations wrap the expression (simplify, expand,
