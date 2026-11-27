@@ -9,8 +9,9 @@ description: View PDF files, fill in PDF forms and add a handwritten signature.
 Open a `.pdf` file to display its pages.
 
 - **◀ ▶** or the page box: navigate (the current page follows scrolling).
-- **− / +**: zoom; **↔**: fit to width (default); **↕**: whole page, its
-  height and width in view.
+- **− / +**: zoom (100 % by default, see *Settings → Reading and review*);
+  **↔**: fit to width; **↕**: whole page, its height and width in view. The
+  last choice, a percentage included, is kept for the next file.
 - **🔍 Find** (<kbd>Ctrl</kbd>+<kbd>F</kbd>): type a word; the matches are
   highlighted, the current one in orange, with their count. <kbd>Enter</kbd>
   and <kbd>Shift</kbd>+<kbd>Enter</kbd> (or ▼ ▲) go to the next and previous

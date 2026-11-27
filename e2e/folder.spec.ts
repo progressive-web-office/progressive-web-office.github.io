@@ -395,7 +395,10 @@ test('shows ==highlights== and callouts of a note and keeps them on save (MD-019
   await panel.getByRole('button', { name: 'n.md' }).click();
   const editor = page.getByRole('textbox', { name: 'Document' });
   await expect(editor.locator('blockquote.callout-warning')).toHaveCount(2);
-  await expect(editor.locator('blockquote.callout-head')).toHaveText('[!WARNING] Hot');
+  // The icon of the type before the title; the marker shown only while the title line is edited.
+  await expect(editor.locator('blockquote.callout-head .callout-icon')).toHaveText('⚠️');
+  await expect(editor.locator('blockquote.callout-head .callout-marker')).toBeHidden();
+  await expect(editor.locator('blockquote.callout-head')).toContainText('Hot');
   await expect(editor.getByText('important')).toHaveCSS('background-color', 'rgb(255, 241, 118)');
   if (process.env.SCREENSHOTS) await page.screenshot({ path: 'test-results/callouts.png' });
   await editor.getByText('After.').click();

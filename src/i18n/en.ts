@@ -3200,6 +3200,7 @@ export const en = {
   'bases.unsupported': 'Not supported here — the notes these filters would leave out are kept, the columns show “not supported”, and the file keeps them as written:',
   'bases.limited': 'The first {n} of {total} notes (limit of the view).',
   'bases.notSupported': 'not supported',
+  'settings.zoomActual': 'Actual size (100 %)',
 } as const;
 
 export type MessageKey = keyof typeof en;

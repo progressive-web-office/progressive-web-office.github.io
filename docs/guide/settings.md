@@ -33,7 +33,8 @@ How PDF files and text documents in [review mode](./review) are shown when
 they open:
 
 - **Pages side by side**: 1, 2, 3, 4 or 6;
-- **Zoom**: fit the width or the whole page;
+- **Zoom**: actual size (100 %, the default), fit the width or the whole
+  page;
 - **Page layout**: scrolling, or page by page without scrolling;
 - **Remember the last choice made in the toolbar**: when it is on, a change
   in the toolbar becomes the default for the next file; turn it off to open

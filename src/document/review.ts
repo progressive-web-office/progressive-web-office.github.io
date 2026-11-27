@@ -285,7 +285,7 @@ export class DocReview {
 
   /** A choice of the bar: the default next time, when the settings say so (SET-002). */
   private save(): void {
-    rememberReading({ perRow: this.perRow, flow: this.flow, ...(typeof this.zoom === 'number' ? {} : { zoom: this.zoom }) });
+    rememberReading({ perRow: this.perRow, flow: this.flow, zoom: this.zoom });
   }
 
   private setPerRow(n: number): void {

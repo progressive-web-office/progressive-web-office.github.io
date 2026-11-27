@@ -3202,4 +3202,5 @@ export const zh: Record<MessageKey, string> = {
   'bases.unsupported': '此处不支持——这些筛选条件本会排除的笔记仍被保留，相应列显示“不支持”，文件中按原样保留：',
   'bases.limited': '共 {total} 条笔记中的前 {n} 条（视图限制）。',
   'bases.notSupported': '不支持',
+  'settings.zoomActual': '实际大小（100%）',
 };
