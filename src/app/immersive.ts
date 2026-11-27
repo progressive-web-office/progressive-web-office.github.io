@@ -58,6 +58,12 @@ export function immersive({ dialog, title, actions, rows, body, scroller }: Imme
   }
   window.addEventListener('resize', room);
   dialog.addEventListener('close', () => window.removeEventListener('resize', room));
+  // The side panels follow the tools as they grow (a row of properties shown), the drawing staying where it is.
+  if (typeof ResizeObserver !== 'undefined') {
+    const panels = new ResizeObserver(() => body.style.setProperty('--draw-chrome', `${chrome.classList.contains('folded') ? 0 : chrome.offsetHeight}px`));
+    panels.observe(chrome);
+    dialog.addEventListener('close', () => panels.disconnect());
+  }
   // The tools first, for the keyboard; they float over what is edited.
   dialog.append(chrome, body);
   queueMicrotask(room);

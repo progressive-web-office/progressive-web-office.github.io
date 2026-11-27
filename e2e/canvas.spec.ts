@@ -22,6 +22,8 @@ test('opens a canvas, adds a card, edits and connects it, undoes, and saves it a
 
   // Connect the first text card to the new one, from its right side.
   const from = view.locator('.canvas-node[data-id="t1"]');
+  await added.scrollIntoViewIfNeeded();
+  await from.scrollIntoViewIfNeeded();
   await from.hover();
   const handle = await from.locator('.canvas-handle-right').boundingBox();
   const target = await added.boundingBox();
