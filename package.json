@@ -52,6 +52,8 @@
     "@myriaddreamin/typst-ts-web-compiler": "^0.7.0",
     "@pdfme/pdf-lib": "^6.2.2",
     "@scelles/collab": "github:s-celles/QRShare#collab-dist-v0.2.0",
+    "@semanticatlas/core": "github:SemanticAtlas/semantic-atlas-core#core-dist-v0.2.2",
+    "@semanticatlas/engine": "github:SemanticAtlas/semantic-atlas-engine#engine-dist-v0.1.0",
     "@types/markdown-it-footnote": "^3.0.4",
     "buffer": "^6.0.3",
     "fflate": "^0.8.3",

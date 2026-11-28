@@ -10,6 +10,15 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
 
 ### Added
 
+- **Map of the notes** (FOLDER-034, FOLDER-035): the graph of the notes of a
+  folder is now an interactive map, laid out on the device by the
+  [semantic-atlas](https://github.com/SemanticAtlas/semantic-atlas-core)
+  relations view and its engine (WebAssembly, MIT): drag, zoom, move a note,
+  open one with a double click or Enter, go from note to note with the
+  keyboard, and a table of the links for screen readers. It can show only
+  the notes around the open note, up to a chosen number of links. A link to
+  a note not written yet leads to a hollow note, which offers to create it.
+  It replaces the Mermaid drawing of FOLDER-018.
 - **Links shown, followed on Ctrl+click** (DOC-055): while editing, a click on
   a link shows a bubble with its address (or note) and *Open*, *Edit*, *Copy
   the address*, *Remove the link*; Ctrl+click (Cmd+click) follows it. A

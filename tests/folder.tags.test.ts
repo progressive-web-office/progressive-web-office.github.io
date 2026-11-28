@@ -65,18 +65,6 @@ describe('FOLDER-017/FOLDER-018 tags and links across the folder', () => {
   });
 });
 
-describe('FOLDER-018 graph of the notes', () => {
-  it('draws each note once and each link once, both ways as one double arrow', async () => {
-    const { notesGraphSource } = await import('../src/folder/graph');
-    const src = notesGraphSource(['a.md', 'b.md', 'sub/c "x".md'], [
-      { from: 'a.md', to: 'b.md' },
-      { from: 'b.md', to: 'a.md' },
-      { from: 'a.md', to: 'sub/c "x".md' },
-    ]);
-    expect(src).toBe(['flowchart LR', '  n0["a"]', '  n1["b"]', '  n2["c #quot;x#quot;"]', '  n0 <--> n1', '  n0 --> n2'].join('\n'));
-  });
-});
-
 describe('FOLDER-019 related notes', () => {
   it('ranks the notes sharing tags or links with a note', async () => {
     const v = new NoteVault(
