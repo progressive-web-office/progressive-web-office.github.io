@@ -10,6 +10,21 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
 
 ### Added
 
+- **Calculator** (CALC-001, CALC-002, CALC-003, CALC-005, CALC-012): a
+  calculator in a window of its own, from the start screen, the command
+  palette and the *Insert* menu of a document, offline and usable from the
+  keyboard.
+  - **Standard**: computed in decimal (`0.1 + 0.2 = 0.3`), with percentages
+    as on a desk calculator, a memory and a history.
+  - **Scientific**: functions, degrees, radians or grads, constants, the
+    normal, scientific or engineering notation, and a chosen number of
+    significant digits.
+  - **Programmer**: integers in every base at once, words of 8 to 64 bits or
+    without limit, signed or not, bitwise operations, shifts, rotations, and
+    a grid of bits to click.
+
+  Graphing and symbolic modes and *Open in CAScad* come later
+  (CALC-004, CALC-006..CALC-009).
 - **Map of the notes** (FOLDER-034, FOLDER-035): the graph of the notes of a
   folder is now an interactive map, laid out on the device by the
   [semantic-atlas](https://github.com/SemanticAtlas/semantic-atlas-core)

@@ -2871,6 +2871,8 @@ export class DocumentEditor implements EditorView {
         act(t('doc.insertEquation'), '∑', () => void this.editMath(), t('doc.insertEquationTitle')),
         act(t('doc.insertCode'), '{ }', () => void this.editCell(), t('doc.insertCodeTitle')),
         act(t('doc.insertMathCell'), '∑=', () => void this.editMathCell(), t('doc.insertMathCellTitle')),
+        // CALC-001: the calculator, over the document.
+        act(t('calc.title'), '🧮', () => void import('../calc/ui').then(({ openCalculator }) => openCalculator(document.body)), t('calc.cardTitle')),
         act(t('doc.insertDiagram'), '⧉', () => void this.editDiagram(), t('doc.insertDiagramTitle')),
         act(t('note.button'), '¹', () => void this.editNote(), `${t('note.insert')} (Ctrl+Alt+F)`),
         act(t('field.insert'), '⌗', () => this.fieldMenu(), t('field.insertTitle')),
