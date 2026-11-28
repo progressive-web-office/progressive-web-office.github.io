@@ -65,7 +65,11 @@ export function collectCommands(root: HTMLElement): PaletteCommand[] {
     if (el.closest('.draw-chrome.folded')) return !el.closest('[hidden]');
     const menu = el.closest<HTMLElement>('.tool-group-panel');
     if (menu) return !menu.parentElement?.closest('[hidden]') && visible(menu.parentElement!.querySelector<HTMLElement>('.tool-group-toggle') ?? menu.parentElement!);
-    return !el.closest('[hidden]') && (el.offsetParent !== null || el.getClientRects().length > 0);
+    if (el.closest('[hidden]')) return false;
+    if (el.offsetParent !== null || el.getClientRects().length > 0) return true;
+    // UI-014: on a phone, the header's actions are folded behind its "More actions" button, which is in sight.
+    const more = el.closest('.header-actions')?.querySelector<HTMLElement>(':scope > .more-toggle');
+    return !!more && more !== el && more.offsetParent !== null;
   };
   // The toolbar, panel or menu around the control (not the control itself).
   const whereOf = (el: HTMLElement): string => el.parentElement?.closest<HTMLElement>('[role=toolbar], aside, header, [aria-label]')?.getAttribute('aria-label') ?? '';

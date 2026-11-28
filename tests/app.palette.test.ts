@@ -56,6 +56,25 @@ describe('UI-022 commands by category', () => {
     bar.remove();
   });
 
+  it('finds the header actions folded behind "More actions" on a phone (UI-014)', async () => {
+    const { collectCommands } = await import('../src/app/palette');
+    const { toolGroup } = await import('../src/app/tool-groups');
+    const { button, h } = await import('../src/app/dom');
+    const more = button('More actions', () => undefined, { text: '⋯', className: 'icon more-toggle' });
+    const nav = h('nav', { class: 'header-actions', 'aria-label': 'File actions' }, button('Print', () => undefined), toolGroup('File', '🗂', [button('Pseudonymise…', () => undefined)], 'compact'), more);
+    document.body.append(nav);
+    // Only the "More actions" button is laid out (when `moreShown`): the other actions are folded behind it.
+    const layOut = (moreShown: boolean): void => {
+      for (const el of nav.querySelectorAll<HTMLElement>('*')) Object.defineProperty(el, 'offsetParent', { configurable: true, get: () => (moreShown && el.closest('.more-toggle') ? document.body : null) });
+    };
+    layOut(true);
+    expect(collectCommands(document.body).map((c) => c.label)).toEqual(['Print', 'Pseudonymise…', 'More actions']);
+    // Nothing in sight, not even "More actions": nothing is offered.
+    layOut(false);
+    expect(collectCommands(document.body)).toEqual([]);
+    nav.remove();
+  });
+
   it('finds a command by its category, and lists them all by category', async () => {
     const { filterCommands, groupByCategory } = await import('../src/app/palette');
     const cmds = [
