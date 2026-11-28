@@ -175,6 +175,9 @@ Roadmap phases are `0.0.x` milestones (see `ROADMAP.md`).
 - **Connecting cards on a canvas** (CANVAS-003): a handle of a card starts a
   connection even where the label or the line of an edge lies over it, as
   happens when the canvas is zoomed out to fit a small window.
+- **The command palette on a phone** (UI-022): it now finds the actions of the
+  header folded behind *More actions* (File and Share menus, settings…),
+  which it left out, so that *Pseudonymise…* or *Settings* could not be found.
 - **Links find their file** (FOLDER-033): wiki links, embeds, pictures and the
   file cards of canvases look for the file relative to the file naming it,
   then from the root of the folder, then by the end of its path (notes kept
