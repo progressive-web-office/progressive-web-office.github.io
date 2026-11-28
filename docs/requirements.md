@@ -887,6 +887,28 @@ remain personal data while the mapping table exists.
 | PSEUDO-044 | M | 0.2.0 | When the user chooses *Pseudonymise…* in the menu of the explorer, on selected folders (the folder itself included, FOLDER-032) or files, or chooses *the open folder* in the pseudonymisation choice, the system shall take as inputs the files handled under them, leaving out the list, the tables and earlier outputs (PSEUDO-029), without asking for an input folder, and shall give the outputs, named after the pseudonyms without the folders they came from, as one ZIP to download, or, where the browser can write folders, write them to an empty output folder chosen outside the open folder. |
 | PSEUDO-040 | W | — | Lists of people read from databases (SQLite and others). |
 
+## 9zf. Calculator (CALC)
+
+A calculator of its own, in five modes. The numeric modes compute in the
+browser; the exact and symbolic results come from the engine of the math
+cells (CAS-001, CAS-007); a calculation can be continued in CAScad, a
+notebook of computer algebra.
+
+| ID | Pri | Phase | Requirement |
+|---|---|---|---|
+| CALC-001 | M | 0.2.0 | The system shall offer a calculator in a window of its own, opened from the start screen, the command palette and the Insert menu of a document, with the modes Standard, Scientific, Programmer, Graphing and Symbolic, the last mode used being kept. |
+| CALC-002 | M | 0.2.0 | In Standard mode, the calculator shall add, subtract, multiply and divide, with percentages, a change of sign, parentheses and a memory (MC, MR, M+, M−, MS), compute in decimal (0.1 + 0.2 = 0.3), take the keyboard as well as its buttons, and keep a history of the calculations on the device, each one reusable or copied on request. |
+| CALC-003 | M | 0.2.0 | In Scientific mode, the calculator shall also offer the trigonometric functions and their inverses, the hyperbolic functions, exp, ln, log10 and the logarithm in a base, roots and powers, the factorial, the absolute value, floor, ceiling and rounding, the remainder, combinations and arrangements and a random number, angles in degrees, radians or grads, constants (π, e and physical constants), the normal, scientific or engineering notation, and a chosen number of significant digits. |
+| CALC-004 | S | — | When the user asks for an exact result, the calculator shall compute it with the engine of the math cells (CAS-001, CAS-007) and show it as an equation (fractions, roots, π). |
+| CALC-005 | M | 0.2.0 | In Programmer mode, the calculator shall compute on integers shown at once in decimal, hexadecimal, octal and binary, on 8, 16, 32 or 64 bits or without limit, signed (two's complement) or unsigned, a result wrapping at the size of the word, with AND, OR, XOR, NOT, NAND, NOR, shifts and rotations, and a grid of the bits that the user can click to change them. |
+| CALC-006 | S | — | In Graphing mode, the calculator shall draw curves y = f(x), parametric, polar and implicit, several at once told apart by their colour and their line, let the user zoom, pan and follow a curve, find roots, extrema and intersections, change parameters with sliders, list a table of values readable by screen readers, and export the graph as SVG or PNG or insert it in the document. |
+| CALC-007 | S | — | In Symbolic mode, the calculator shall take an expression in a math field and simplify, expand, factor, solve, differentiate, integrate, take a limit or a series with the engine of the math cells, in the sandbox with a Stop button (CAS-003), and show the result as an equation. |
+| CALC-008 | S | — | The calculator shall insert a result, or its history, in the open document as an equation or a math cell (CAS-001), and a graph as a picture. |
+| CALC-009 | S | — | When the user asks to open a calculation in CAScad, the system shall send one expression or the history as a CAScad notebook, in a link holding it after `#` (never sent to a server), opened in a new tab after confirmation, or as a file when the link would be too long; the address of CAScad shall be set in the settings. |
+| CALC-010 | C | — | The calculator as an application of its own, installable and working offline. |
+| CALC-011 | C | — | Receiving a calculation sent from CAScad. |
+| CALC-012 | M | 0.2.0 | The calculator shall work without any network access (apart from the first download of the engine of the math cells, after the user agreed), be used entirely from the keyboard, announce its results to screen readers, and name each of its buttons. |
+
 ## 10. Out of scope (Won't, this time)
 
 - A collaboration server, user accounts, or storage of documents on a server we operate.

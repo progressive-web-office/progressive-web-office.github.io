@@ -1361,6 +1361,8 @@ export class App {
           button(t('cal.title'), () => void this.openCalendarApp(), { className: 'card calendar', icon: '📅', title: t('cal.cardTitle') }),
           // CONTACT-002: the people kept as notes.
           button(t('people.title'), () => void this.openContactsApp(), { className: 'card contacts', icon: '👥', title: t('people.cardTitle') }),
+          // CALC-001: the calculator, in a window of its own.
+          button(t('calc.title'), () => void this.openCalculator(), { className: 'card calculator', icon: '🧮', title: t('calc.cardTitle') }),
           exam ? null : button(t('git.open'), () => void this.openFromRepository(), { className: 'card repo', icon: '🗂️', title: t('git.openTitle') }),
           exam ? null : button(t('share.receive'), () => void this.receiveFromDevice(), { className: 'card share', icon: '📲', title: t('share.receiveTitle') }),
           exam ? null : button(t('dav.open'), () => void this.openFromCloud(), { className: 'card cloud', icon: '☁️', title: t('dav.openCardTitle') }),
@@ -1726,6 +1728,12 @@ export class App {
     });
     folder.setCurrent(undefined);
     this.setDocument({ name: t('people.title'), format: 'text', kind: 'file', view });
+  }
+
+  /** CALC-001: the calculator, over what is open. */
+  async openCalculator(): Promise<void> {
+    const { openCalculator } = await import('../calc/ui');
+    await openCalculator(this.root);
   }
 
   /** FOLDER-027: the calendar of the notes (of the folder open, else of the browser's storage), or today's note. */
@@ -3053,6 +3061,7 @@ export class App {
         { label: t('sqlite.new'), where: 'SQLite', keywords: 'sqlite database base de données table sql db 数据库', run: () => void setTimeout(() => void this.newDatabase()) },
         { label: t('dm.new'), where: t('dm.format'), keywords: 'data model database mcd mld mpd merise entity association sql schema modèle de données base entité 数据模型 实体', run: () => void setTimeout(() => void this.newDataModel()) },
         { label: t('views.new'), where: t('daily.notes'), keywords: 'view table cards board kanban query database base vue tableau cartes requête base de données 视图 表格 看板', run: () => void setTimeout(() => void this.newNotesView()) },
+        { label: t('calc.title'), where: t('calc.title'), keywords: t('calc.keywords'), run: () => void setTimeout(() => void this.openCalculator()) },
         { label: t('goto.title'), where: t('folder.browserStorage'), keys: ['Ctrl+Shift+O'], keywords: 'go to file open quick aller ouvrir fichier rapide 转到 打开 文件', run: () => void setTimeout(() => void this.goToFile()) },
       ].filter((c) => !labels.has(c.label));
       // TEACH-005: the exam mode, from the palette too.

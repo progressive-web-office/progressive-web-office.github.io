@@ -61,6 +61,7 @@ export default defineConfig({
           { text: 'Printing', link: '/guide/printing' },
           { text: 'Folders and master documents', link: '/guide/folders' },
           { text: 'Calendar and contacts', link: '/guide/calendar' },
+          { text: 'Calculator', link: '/guide/calculator' },
           { text: 'Databases and data models', link: '/guide/data-model' },
           { text: 'ZIP archives and source files', link: '/guide/archives' },
           { text: 'Git repositories', link: '/guide/git' },
