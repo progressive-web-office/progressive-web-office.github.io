@@ -83,3 +83,30 @@ test('a canvas of notes kept in a folder of a ZIP archive shows and opens the no
   await expect(page.locator('.doc-page h1')).toHaveText('Session one');
   expect(errors).toEqual([]);
 });
+
+test.describe('a smaller window', () => {
+  test.use({ viewport: { width: 1280, height: 600 } });
+
+  test('a connection starts from a handle even where the label of an edge covers it (CANVAS-003)', async ({ page }) => {
+    const errors = await openApp(page);
+    await openFile(page, 'plan.canvas', SAMPLE);
+    const view = page.locator('.canvas-view');
+    await expect(view.locator('.canvas-node')).toHaveCount(5);
+    await view.getByRole('button', { name: 'Text', exact: true }).click();
+    const area = view.getByRole('textbox', { name: /Text of the card/ });
+    await area.fill('Added');
+    await area.press('Control+Enter');
+    const added = view.locator('.canvas-node').last();
+    const from = view.locator('.canvas-node[data-id="t1"]');
+    await from.hover();
+    const handle = (await from.locator('.canvas-handle-right').boundingBox())!;
+    const target = (await added.boundingBox())!;
+    // Zoomed out to fit, the label "leads to" of the edge leaving that side lies over the handle.
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 5 });
+    await page.mouse.up();
+    await expect(view.locator('.canvas-edge')).toHaveCount(3);
+    expect(errors).toEqual([]);
+  });
+});

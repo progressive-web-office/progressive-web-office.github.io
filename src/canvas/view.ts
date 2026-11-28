@@ -727,7 +727,9 @@ export class CanvasView implements EditorView {
 
   private pointerDown(e: PointerEvent): void {
     if (e.button !== 0) return;
-    const target = e.target as HTMLElement;
+    // A handle of a card wins over the label or the line of an edge lying over it (zoomed out, a label covers the side it leaves from).
+    const handle = typeof document.elementsFromPoint === 'function' ? document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.classList.contains('canvas-handle') && this.layer.contains(el)) : undefined;
+    const target = (handle ?? e.target) as HTMLElement;
     if (target.closest('textarea, input, button, select, a')) return;
     const nodeEl = target.closest<HTMLElement>('.canvas-node');
     const node = nodeEl ? this.doc.nodes.find((n) => n.id === nodeEl.dataset.id) : undefined;
