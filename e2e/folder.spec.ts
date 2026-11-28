@@ -267,7 +267,7 @@ test('copies, pastes, duplicates and downloads from the context menu and the key
   expect(zip.toString('latin1')).toContain('notes/z.md');
 });
 
-test('lists the tags of the notes, renames one everywhere and draws the graph of the notes (FOLDER-017, FOLDER-018)', async ({ page }) => {
+test('lists the tags of the notes, renames one everywhere and draws the graph of the notes (FOLDER-017, FOLDER-034)', async ({ page }) => {
   await fakeFolder(page, {
     'a.md': '---\ntags: [physics]\n---\n# A\n\nSee [[b]]. #todo\n',
     'b.md': '# B\n\nBack to [[a]]. #todo\n',
@@ -286,12 +286,12 @@ test('lists the tags of the notes, renames one everywhere and draws the graph of
   await expect(panel.locator('.folder-tag .link')).toHaveText(['#next', '#physics']);
   const files = () => page.evaluate(() => Object.fromEntries((window as unknown as { __folder: Map<string, string> }).__folder));
   await expect.poll(async () => (await files())['b.md']).toBe('# B\n\nBack to [[a]]. #next\n');
-  // The graph of the notes; a click opens one.
+  // FOLDER-034: the map of the notes; a note opens from the table of links.
   await panel.getByRole('button', { name: 'Graph of the notes' }).click();
   const graph = page.getByRole('dialog', { name: 'Graph of the notes' });
-  await expect(graph).toContainText('3 notes, 2 links, 1 notes without links');
-  await expect(graph.locator('svg g.node')).toHaveCount(3, { timeout: 30_000 });
-  await graph.locator('svg g.node[data-note="b.md"]').click();
+  await expect(graph.getByRole('status')).toHaveText('Notes: 3 · links: 2 · links to notes not written yet: 0', { timeout: 30_000 });
+  await expect(graph.getByRole('img', { name: 'Map of the notes and their links' })).toBeVisible();
+  await graph.getByRole('table', { name: 'Links between the notes' }).getByRole('rowheader', { name: 'b' }).getByRole('button').click();
   await expect(graph).toBeHidden();
   await expect(page.locator('.doc-page h1')).toHaveText('B');
   // FOLDER-019: beside the open note, the notes sharing its tags or linked with it.
@@ -443,4 +443,56 @@ test('a Git working copy shows its branch; documents are saved in place (GIT-014
   await expect(panel.getByRole('button', { name: '.git' })).toHaveCount(0);
   await panel.getByRole('button', { name: 'Git working copy, branch main' }).click();
   await expect(page.getByRole('dialog', { name: 'This folder is a Git working copy' })).toContainText('Git keeps the versions');
+});
+
+test('the map of the notes: links to notes not written yet, the keyboard, the notes around the open one (FOLDER-034, FOLDER-035)', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  const outside: string[] = [];
+  page.on('request', (r) => {
+    if (!r.url().startsWith('http://localhost:4173/') && !/^(blob|data):/.test(r.url())) outside.push(r.url());
+  });
+  await fakeFolder(page, {
+    'a.md': '# A\n\nSee [[b]] and [[Ideas]].\n',
+    'b.md': '# B\n\nOn to [[c]].\n',
+    'c.md': '# C\n\nOn to [[d]].\n',
+    'd.md': '# D\n',
+    'e.md': '# E\n',
+  });
+  await openLocalFolder(page);
+  const panel = page.getByRole('complementary', { name: 'Folder' });
+  await panel.getByRole('button', { name: 'a.md' }).click();
+  await expect(page.locator('.doc-page h1')).toHaveText('A');
+  await panel.getByRole('button', { name: 'Graph of the notes' }).click();
+  const graph = page.getByRole('dialog', { name: 'Graph of the notes' });
+  const status = graph.getByRole('status');
+  await expect(status).toHaveText('Notes: 5 · links: 3 · links to notes not written yet: 1', { timeout: 30_000 });
+  // FOLDER-035: around the open note, one link away by default, then two.
+  await graph.getByLabel('Only the notes around a').check();
+  await expect(status).toHaveText('Notes: 2 · links: 1 · links to notes not written yet: 1');
+  const table = graph.getByRole('table', { name: 'Links between the notes' });
+  // The link to a note not written yet leads to a note of its own.
+  await expect(table.getByRole('rowheader')).toHaveText(['a', 'b', 'Ideas (not written yet)']);
+  await graph.getByRole('spinbutton', { name: 'Links followed' }).fill('2');
+  await expect(status).toHaveText('Notes: 3 · links: 2 · links to notes not written yet: 1');
+  await graph.getByLabel('Only the notes around a').uncheck();
+  await expect(status).toHaveText('Notes: 5 · links: 3 · links to notes not written yet: 1');
+  // From the keyboard: the next note, then Enter opens it.
+  const map = graph.getByRole('img', { name: 'Map of the notes and their links' });
+  await map.focus();
+  await page.keyboard.press('n');
+  await page.keyboard.press('Enter');
+  await expect(graph).toBeHidden();
+  await expect(page.locator('.doc-page h1')).toHaveText(/^[A-E]$/);
+  // A note not written yet is created on request (FOLDER-005).
+  await panel.getByRole('button', { name: 'Graph of the notes' }).click();
+  await expect(status).toHaveText('Notes: 5 · links: 3 · links to notes not written yet: 1', { timeout: 30_000 });
+  page.once('dialog', (d) => void d.accept());
+  await table.getByRole('rowheader', { name: 'Ideas (not written yet)' }).getByRole('button').click();
+  await expect(graph).toBeHidden();
+  await expect(page.locator('.doc-page h1')).toHaveText('Ideas');
+  const files = () => page.evaluate(() => Object.fromEntries((window as unknown as { __folder: Map<string, string> }).__folder));
+  await expect.poll(async () => (await files())['Ideas.md']).toBe('# Ideas\n');
+  expect(outside).toEqual([]);
+  expect(errors).toEqual([]);
 });

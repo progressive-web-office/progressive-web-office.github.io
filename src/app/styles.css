@@ -1472,9 +1472,14 @@ body.distraction-free .ai-panel { display: none !important; }
 .folder-tag { display: inline-flex; align-items: center; gap: 2px; }
 .folder-tag-count { font-size: 0.75rem; color: var(--muted); }
 .folder-tag-rename { width: 1.6rem; height: 1.6rem; padding: 0; font-size: 0.8rem; }
-.notes-graph-dialog { width: min(92vw, 1100px); }
-.notes-graph { max-height: 70vh; overflow: auto; background: #fff; border-radius: 6px; padding: 6px; }
-.notes-graph svg { display: block; max-width: none; margin: 0 auto; }
+.notes-graph-dialog { width: min(1100px, calc(100vw - 32px)); max-width: none; }
+/* FOLDER-034: the map of the notes, in the colours of the theme. */
+.notes-graph { height: min(72vh, 820px); --sa-node: var(--muted); --sa-accent: var(--accent); --sa-edge: var(--muted); --sa-text: var(--text); --sa-background: var(--surface); --sa-font: 12px system-ui, sans-serif; }
+.notes-graph-focus { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 0 0 8px; }
+.notes-graph-focus input[type='number'] { width: 4em; }
+@media (forced-colors: active) {
+  .notes-graph { --sa-node: CanvasText; --sa-accent: Highlight; --sa-edge: CanvasText; --sa-text: CanvasText; --sa-background: Canvas; }
+}
 .folder-related-why { display: block; margin-left: 1.6rem; font-size: 0.75rem; color: var(--muted); }
 
 /* FOLDER-021: completion of [[links]] and #tags in a note. */

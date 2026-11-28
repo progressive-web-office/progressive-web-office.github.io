@@ -328,14 +328,21 @@ export class FolderPanel {
     }
   }
 
-  /** The notes and the links between them, as a graph; a click opens a note (FOLDER-018). */
+  /** The notes and the links between them, as an interactive map; the open note can be its centre (FOLDER-034, FOLDER-035). */
   private async showGraph(): Promise<void> {
-    const { notesGraphDialog } = await import('./graph');
-    const notes = (await this.vault.indexed()).notes().slice(0, 200);
-    const keep = new Set(notes);
-    const links = (await this.vault.links()).filter((l) => keep.has(l.from) && keep.has(l.to));
-    const path = await notesGraphDialog(document.body, notes, links);
-    if (path) this.hooks.open(path);
+    const { notesGraphData, notesGraphDialog } = await import('./graph');
+    const index = await this.vault.indexed();
+    const data = notesGraphData(index.notes().slice(0, 2000), index.links(), index.unresolved());
+    const pick = await notesGraphDialog(document.body, data, this.current ? { current: this.current } : {});
+    if (!pick) return;
+    if ('open' in pick) return this.hooks.open(pick.open);
+    // FOLDER-005: a note not written yet, created on request, at the root of the folder.
+    const name = pick.create.replace(/#.*$/, '').trim();
+    if (!name || !window.confirm(t('vault.create', { name }))) return;
+    const path = `${name.replace(/^\/+/, '')}.md`;
+    await this.provider.write(path, new Blob([`# ${name.split('/').pop()}\n`]));
+    await this.refresh();
+    this.hooks.open(path);
   }
 
   private current: string | undefined;

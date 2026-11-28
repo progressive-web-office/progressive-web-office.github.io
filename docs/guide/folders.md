@@ -382,10 +382,30 @@ downloaded the first time, after you agreed (see
 
 ### Graph of the notes
 
-**🕸** next to the folder's name draws the notes and the links between them
-(`[[wiki links]]` and relative Markdown links; a link both ways is a double
-arrow), with the number of notes without links. Click a note, or its name
-in the list below the graph, to open it.
+**🕸** next to the folder's name shows a map of the notes and of the links
+between them (`[[wiki links]]` and relative Markdown links), each link with
+an arrow towards the note it leads to. The map is laid out on your device;
+nothing is sent anywhere.
+
+- **Open a note**: double-click it, or select it and press **Enter**, or
+  click its name in the table of links below the map.
+- **Move around**: drag the background to move the map, the wheel zooms;
+  drag a note to move it (keep **Shift** pressed to leave it there). A click
+  on a note highlights it and the notes it is linked with.
+- **From the keyboard** (the map focused with **Tab**): **n** and **p** go
+  from note to note, the arrows move the map, **+** and **−** zoom, **0**
+  shows everything, **Escape** clears the selection.
+- **Around the open note**: tick *Only the notes around …* to see only the
+  notes within one link of the open note, in either direction; *Links
+  followed* goes further.
+
+A link to a note not written yet leads to a hollow note of its own, the
+link drawn with dashes and dots; opening it offers to create the note, at
+the root of the folder. The line under the map counts the notes, the links
+and the links to notes not written yet. The table lists, for each note, the notes it links to and
+those linking to it: screen readers read it, and every name in it opens its
+note. The map follows the theme, high contrast included, and draws the
+result at once when your system asks for reduced motion.
 
 ### Templates of the folder
 
